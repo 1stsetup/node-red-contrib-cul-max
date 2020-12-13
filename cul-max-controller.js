@@ -14,7 +14,8 @@ const IGNORE_FIELDS = [
 	"src",
 	"dst",
 	"dstDevice",
-	"payload"
+	"payload",
+	"getKeyByValue"
 ]
 
 module.exports = function (RED) {
@@ -85,35 +86,70 @@ module.exports = function (RED) {
 			}
 		});
 
-		node.addMaxDevice = function(deviceDetails) {
+		node.addMaxDevice = function(deviceDetails, send, done) {
+			var now = (new Date()).getTime() / 1000;
+
 			if (deviceDetails["address"]) {
-				if (!node.devices[deviceDetails.address]) {
-					// add device
+				if (node.devices[deviceDetails.address]) {
+					node.devices[deviceDetails.address].device = deviceDetails.device;
+				}
+				else {
 					node.devices[deviceDetails.address] = {
 						device: deviceDetails.device
 					}
 				}
 			}
-			try {
-				if (deviceDetails["data"] && deviceDetails.data["dst"]) {
+
+			if (deviceDetails["data"] && deviceDetails.data["msgType"]) {
+
+				if (deviceDetails.data["dst"]) {
 					if (!node.devices[deviceDetails.data.dst]) {
 						node.devices[deviceDetails.data.dst] = {
 							device: deviceDetails.data.dstDevice
 						}
 					}
+				}
 
+				var direction = (deviceDetails.data.msgType.indexOf("State") == -1) ? "dst" : "src";
+
+				if (deviceDetails.data[direction]) {
 					for(var field in deviceDetails.data) {
 						if (!IGNORE_FIELDS.includes(field)) {
-							node.devices[deviceDetails.data.dst][field] = deviceDetails.data[field];
+							switch (field) {
+								case "measuredTemperature":
+								case "valveposition":
+									if (node.devices[deviceDetails.data[direction]][field]) {
+										let previousValue = node.devices[deviceDetails.data[direction]][field];
+										let currentValue = deviceDetails.data[field];
+										let valueDiff = currentValue - previousValue;
+										let timeDiff = now - node.devices[deviceDetails.data[direction]].timestamp;
+										let speed = valueDiff / timeDiff;
+										node.devices[deviceDetails.data[direction]][field+"-diff"] = valueDiff;
+										node.devices[deviceDetails.data[direction]][field+"-speed"] = speed;
+									}
+									break;
+								case "WallThermostatControl":
+									if (!node.devices[deviceDetails.data[direction]]["device"]) {
+										node.devices[deviceDetails.data[direction]].device = "HeatingThermostat";
+									}
+									break;
+							}
+							node.devices[deviceDetails.data[direction]][field] = deviceDetails.data[field];
 						}
 					}
+					node.devices[deviceDetails.data[direction]].timestamp = now;
+					send({
+						topic: "cul-max:message",
+						address: deviceDetails.data[direction],
+						payload: node.devices[deviceDetails.data[direction]]
+					});
 				}
-			}
-			catch(err) {
-				node.log("!!ERROR:"+err);
+		
 			}
 
-			node.updateStatus()
+			node.updateStatus();
+
+			node.saveDevices(done);
 
 		}
 
@@ -129,23 +165,26 @@ module.exports = function (RED) {
 				msg.payload.protocol == "MORITZ") {
 
 				msg.topic = 'cul-max:message';
-				node.addMaxDevice(msg.payload);
+				node.addMaxDevice(msg.payload, send, done);
 
-				send(msg);
-		
 			}
-
-			if (done) {
-				done();
+			else {
+				if (done) {
+					done();
+				}
 			}
 		});
 
-		this.on("close", function (removed, done) {
+		this.saveDevices = function(done) {
 			fs.writeFile(node.address+SAVED_MAX_DEVICES, JSON.stringify(node.devices,null,"\t"), (err) => {
 				if (done) {
 					done();
 				}
 			});
+		}
+
+		this.on("close", function (removed, done) {
+			node.saveDevices(done);
 		});
 
 	}
