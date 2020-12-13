@@ -89,25 +89,32 @@ module.exports = function (RED) {
 		node.addMaxDevice = function(deviceDetails, send, done) {
 			var now = (new Date()).getTime() / 1000;
 
-			if (deviceDetails["address"]) {
-				if (node.devices[deviceDetails.address]) {
-					node.devices[deviceDetails.address].device = deviceDetails.device;
-				}
-				else {
-					node.devices[deviceDetails.address] = {
-						device: deviceDetails.device
+			if (deviceDetails["data"] && deviceDetails.data["msgType"]) {
+
+				if (deviceDetails.data["src"]) {
+					if (!node.devices[deviceDetails.data.src]) {
+						node.devices[deviceDetails.data.src] = {
+							device: deviceDetails.device,
+							linkedDevices: []
+						}
 					}
 				}
-			}
-
-			if (deviceDetails["data"] && deviceDetails.data["msgType"]) {
 
 				if (deviceDetails.data["dst"]) {
 					if (!node.devices[deviceDetails.data.dst]) {
 						node.devices[deviceDetails.data.dst] = {
-							device: deviceDetails.data.dstDevice
+							device: deviceDetails.data.dstDevice,
+							linkedDevices: []
 						}
 					}
+				}
+
+				if (deviceDetails.data["src"] && deviceDetails.data["dst"]) {
+					if (!node.devices[deviceDetails.data["src"]].linkedDevices.includes(deviceDetails.data["dst"]))
+						node.devices[deviceDetails.data["src"]].linkedDevices.push(deviceDetails.data["dst"]);
+					
+					if (!node.devices[deviceDetails.data["dst"]].linkedDevices.includes(deviceDetails.data["src"]))
+						node.devices[deviceDetails.data["dst"]].linkedDevices.push(deviceDetails.data["src"]);
 				}
 
 				var direction = (deviceDetails.data.msgType.indexOf("State") == -1) ? "dst" : "src";
@@ -128,9 +135,11 @@ module.exports = function (RED) {
 										node.devices[deviceDetails.data[direction]][field+"-speed"] = speed;
 									}
 									break;
-								case "WallThermostatControl":
-									if (!node.devices[deviceDetails.data[direction]]["device"]) {
-										node.devices[deviceDetails.data[direction]].device = "HeatingThermostat";
+								case "msgType":
+									if (deviceDetails.data[field] == "WallThermostatControl") {
+										if (node.devices[deviceDetails.data[direction]]["device"] == undefined) {
+											node.devices[deviceDetails.data[direction]].device = "HeatingThermostat";
+										}	
 									}
 									break;
 							}
