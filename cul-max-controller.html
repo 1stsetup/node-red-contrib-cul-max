@@ -1,0 +1,72 @@
+<!--
+
+  CUL nodes for IBM's Node-Red
+  https://github.com/1stsetup/node-red-contrib-cul.git
+  (c) 2016, Michel Verbraak <info@1st-setup.nl>
+
+  One may find full license text here: https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
+
+  You are free to:
+
+  Share - copy and redistribute the material in any medium or format
+  Adapt - remix, transform, and build upon the material
+  The licensor cannot revoke these freedoms as long as you follow the license terms.
+
+  Under the following terms:
+
+  Attribution - You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
+  NonCommercial - You may not use the material for commercial purposes.
+  ShareAlike - If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+  No additional restrictions - You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
+
+  Notices:
+
+  You do not have to comply with the license for elements of the material in the public domain or where your use is permitted by an applicable exception or limitation.
+  No warranties are given. The license may not give you all of the permissions necessary for your intended use. For example, other rights such as publicity, privacy, or moral rights may limit how you use the material.
+-->
+<script type="text/x-red" data-template-name="cul-max-controller">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-address"><i class="icon-tag"></i> Address</label>
+        <input type="text" id="node-input-address" placeholder="Address" oninput="addressChanged(obj)">
+        <span id="hexWarning"></span>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="cul-max-controller">
+    <p>Use this to <b>receive</b> messages from in cul-on node<br/>
+    	<b>msg.payload</b> will have only CUL message objects of type MORITZ.
+    </p>
+
+</script>
+
+<script type="text/javascript">
+    function addressChanged(obj) {
+        var upperCase = obj.value.match(/[A-F]/);
+        if (upperCase) {
+            obj.value = obj.value.toLowerCase();
+        }
+        var nonHex = obj.value.match(/[0-9a-f]+/);
+        if (!nonHex) {
+            document.getElementById("hexWarning").innerHTML = "Illegal characters. Only hex values [0-9a-f] allowed.";
+        }
+    }
+
+    RED.nodes.registerType('cul-max-controller', {
+        category: 'cul-max',
+        color: '#ffffff',
+        defaults: {
+            name: {value: ""},
+            address: {value: ""}
+        },
+        inputs: 1,
+        outputs: 1,
+        label: function () {
+            return (this.groupaddr || this.name || "!MAX controller");
+        }
+    });
+</script>
+

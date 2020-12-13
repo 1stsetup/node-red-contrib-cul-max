@@ -1,0 +1,31 @@
+{
+  "name": "node-red-contrib-cul-max",
+  "version": "0.0.3",
+  "description": "CUL-MAX for node-red",
+  "main": "cul-max.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1stsetup/node-red-contrib-cul-max.git"
+  },
+  "keywords": [
+    "node-red",
+    "node-red-contrib-cul"
+  ],
+  "node-red": {
+    "nodes": {
+      "cul-max-controller": "cul-max-controller.js"
+    }
+  },
+  "author": "Michel Verbraak <info@1st-setup.nl>",
+  "license": "CC-BY-NC-SA-4.0",
+  "bugs": {
+    "url": "https://github.com/1stsetup/node-red-contrib-cul-max/issues"
+  },
+  "homepage": "https://github.com/1stsetup/node-red-contrib-cul-max#readme",
+  "dependencies": {
+    "node-red-contrib-cul": "latest"
+  }
+}
