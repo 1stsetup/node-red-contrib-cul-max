@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-cul-max",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "CUL-MAX for node-red",
   "main": "cul-max.js",
   "scripts": {
@@ -16,7 +16,8 @@
   ],
   "node-red": {
     "nodes": {
-      "cul-max-controller": "cul-max-controller.js"
+      "cul-max-controller": "cul-max-controller.js",
+      "cul-max-thermostat": "cul-max-thermostat.js"
     }
   },
   "author": "Michel Verbraak <info@1st-setup.nl>",

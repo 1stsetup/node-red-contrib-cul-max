@@ -31,7 +31,7 @@
     </div>
     <div class="form-row">
         <label for="node-input-address"><i class="icon-tag"></i> Address</label>
-        <input type="text" id="node-input-address" placeholder="Address" oninput="addressChanged(obj)">
+        <input type="text" id="node-input-address" placeholder="Address">
         <span id="hexWarning"></span>
     </div>
 </script>
@@ -44,15 +44,16 @@
 </script>
 
 <script type="text/javascript">
-    function addressChanged(obj) {
-        var upperCase = obj.value.match(/[A-F]/);
-        if (upperCase) {
-            obj.value = obj.value.toLowerCase();
-        }
-        var nonHex = obj.value.match(/[0-9a-f]+/);
-        if (!nonHex) {
+    function addressChanged(value) {
+        var nonHex = value.match(/[0-9a-fA-F]+/);
+        if (!(nonHex.length > 0 && nonHex[0] == value)) {
             document.getElementById("hexWarning").innerHTML = "Illegal characters. Only hex values [0-9a-f] allowed.";
         }
+        else {
+            document.getElementById("hexWarning").innerHTML = "";
+        }
+        console.log("addressValidate value='"+value+"', nonHex:"+(nonHex.length > 0 && nonHex[0] == value));
+        return (nonHex.length > 0 && nonHex[0] == value);
     }
 
     RED.nodes.registerType('cul-max-controller', {
@@ -60,7 +61,11 @@
         color: '#ffffff',
         defaults: {
             name: {value: ""},
-            address: {value: ""}
+            address: {
+                value: "",
+                required: true,
+                validate: addressChanged
+            }
         },
         inputs: 1,
         outputs: 1,
