@@ -33,36 +33,40 @@ module.exports = function (RED) {
 			node.controller && node.controller.removeReceivingDevice && node.controller.removeReceivingDevice(node);
 		});
 
-		this.devices = {};
-
         this.on("input", function (msg) {
 			if (msg != null) {
 
 			}
 		});
 
-        this.on("data", function (device) {
+		node.updateStatus = function() {
+			var newText = "";
+			switch (node.device.device) {
+				case "HeatingThermostat":
+					newText += `Valve: ${node.device.valveposition} - `;
+				case "WallMountedThermostat":
+					newText += `${node.device.measuredTemperature}°C/${node.device.desiredTemperature}°C`
+					break;
+			}
+			node.status({
+				fill: "green",
+				shape: "dot",
+				text: newText
+			});
+
+		}
+
+		this.on("data", function (device) {
 			if (device != null) {
                 node.send({
                     topic:"cul-max-thermostat:"+node.address,
                     payload: device
-                })
+				})
+				node.device = device;
+				node.updateStatus();
 			}
 		});
 
-		node.updateStatus = function() {
-			let count = 0;
-			for (var address in node.devices) {
-				count++;
-			}
-
-			node.status({
-				fill: "green",
-				shape: "dot",
-				text: `${count} devices`
-			});
-
-		}
 
         		// 		// Check if we want heating or not.
 				// if (node.devices[device.address]["measuredTemperature-diff"] && node.devices[device.address]["desiredTemparature"]) {

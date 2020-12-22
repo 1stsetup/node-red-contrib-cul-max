@@ -6,6 +6,7 @@ var util = require('util');
 var Cul = require('cul');
 const fs = require('fs');
 const path = require('path');
+const { deflateRawSync } = require('zlib');
 
 const SAVED_MAX_DEVICES = "_saved_max_devices.json";
 
@@ -125,10 +126,41 @@ module.exports = function (RED) {
 							}
 							break;
 						case "dst":
+							var newData;
+							switch (data.msgType) {
+								case "ConfigTemperatures":
+									newData = {
+										comfortTemperature: data.comfortTemperature,
+										ecoTemperature: data.ecoTemperature,
+										maximumTemperature: data.maximumTemperature,
+										minimumTemperature: data.minimumTemperature,
+										offset: data.offset,
+										windowOpenTemperature: data.windowOpenTemperature,
+										windowOpenTime: data.windowOpenTime
+									}
+									break;
+								case "SetTemperature":
+									newData = {
+										mode: data.mode,
+										modeStr: data.modeStr 
+									}
+									if (data.desiredTemperature) {
+										newData.desiredTemperature = data.desiredTemperature
+									}
+									break;
+								case "ConfigWeekProfile":
+									newData = {
+										setId: data.setId,
+										weekday: data.weekday,
+										weekdayStr: data.weekdayStr
+									}
+									newData["controlpoints-"+data.weekday] = data.controlpoints;
+									break;
+							}
 							node.processMaxMsg({
 								address: data.dst,
 								device: data.dstDevice
-							});
+							}, newData);
 							if (device.address !== data.dst) {
 								node.devices[device.address].sendTo[data.dst] = data;
 								node.devices[data.dst].receivedFrom[device.address] = data;
@@ -157,11 +189,13 @@ module.exports = function (RED) {
 					}
 				}
 
-				send({
-					topic: "cul-max:message",
-					address: device.address,
-					payload: node.devices[device.address]
-				});
+				if (send) {
+					send({
+						topic: "cul-max:message",
+						address: device.address,
+						payload: node.devices[device.address]
+					});
+				}
 
 				if (node.receivingDevices[device.address]) {
 					node.receivingDevices[device.address].emit("data",node.devices[device.address]);
@@ -189,7 +223,7 @@ module.exports = function (RED) {
 		this.on("input", function (msg, send, done) {
 			send = send || function() { node.send.apply(node,arguments) };
 
-			node.log("Msg for cul-max-controller:"+JSON.stringify(msg));
+			//node.log("Msg for cul-max-controller:"+JSON.stringify(msg));
 			if (msg["topic"] && 
 				msg.topic === "cul:message" && 
 				msg["payload"] && 
