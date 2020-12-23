@@ -173,6 +173,7 @@ module.exports = function (RED) {
 								case "valveposition":
 									if (node.devices[device.address][field]) {
 										let previousValue = node.devices[device.address][field];
+										node.devices[device.address][field+"-prev"] = previousValue;
 										let currentValue = data[field];
 										let valueDiff = currentValue - previousValue;
 										let timeDiff = now - node.devices[device.address][field+"-timestamp"];
