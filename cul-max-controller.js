@@ -205,7 +205,7 @@ module.exports = function (RED) {
 						valveNeedHeat = ((node.devices[device.address].valveposition > 20) && (node.devices[device.address]["valveposition-diff"] > 0));
 				}
 
-				let globalNeedHeating = node.global.get("needHeating");
+				let globalNeedHeating = node.context().global.get("needHeating");
 				if (!globalNeedHeating) {
 					globalNeedHeating = {};
 				}
@@ -213,7 +213,7 @@ module.exports = function (RED) {
 					tempNeedHeat: tempNeedHeat,
 					valveNeedHeat: valveNeedHeat
 				}
-				node.global.set("needHeating",globalNeedHeating);
+				node.context().global.set("needHeating",globalNeedHeating);
 
 				if (send) {
 					send({
