@@ -189,6 +189,32 @@ module.exports = function (RED) {
 					}
 				}
 
+				// Check if this node needs heating?
+				var tempNeedHeat = false;
+				if (node.devices[device.address].hasOwnProperty("measuredTemperature") &&
+					node.devices[device.address].hasOwnProperty("desiredTemperature") &&
+					node.devices[device.address].hasOwnProperty("measuredTemperature-speed")) {
+						let tempIncrease = (node.devices[device.address]["measuredTemperature-speed"] * (5*60)); //Increase of temp in 5 minutes.
+						tempNeedHeat = (node.devices[device.address].measuredTemperature + tempIncrease) < node.devices[device.address].desiredTemperature;
+				}
+
+				// Check if this node needs heating?
+				var valveNeedHeat = false;
+				if (node.devices[device.address].hasOwnProperty("valveposition") &&
+					node.devices[device.address].hasOwnProperty("valveposition-diff")) {
+						valveNeedHeat = ((node.devices[device.address].valveposition > 20) && (node.devices[device.address]["valveposition-diff"] > 0));
+				}
+
+				let globalNeedHeating = node.global.get("needHeating");
+				if (!globalNeedHeating) {
+					globalNeedHeating = {};
+				}
+				globalNeedHeating[device.address] = {
+					tempNeedHeat: tempNeedHeat,
+					valveNeedHeat: valveNeedHeat
+				}
+				node.global.set("needHeating",globalNeedHeating);
+
 				if (send) {
 					send({
 						topic: "cul-max:message",
