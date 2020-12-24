@@ -43,9 +43,9 @@ module.exports = function (RED) {
 			var newText = "";
 			switch (node.device.device) {
 				case "HeatingThermostat":
-					newText += `Valve: ${node.device.valveposition} - `;
+					newText += `Valve: ${node.device.valveposition !== undefined ?  node.device.valveposition : "-"}% - `;
 				case "WallMountedThermostat":
-					newText += `${node.device.measuredTemperature}°C/${node.device.desiredTemperature}°C`
+					newText += `${node.device.measuredTemperature || "-"}°C/${node.device.desiredTemperature || "-"}°C`
 					break;
 			}
 			node.status({

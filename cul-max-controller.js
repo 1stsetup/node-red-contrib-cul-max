@@ -171,13 +171,16 @@ module.exports = function (RED) {
 							switch (field) {
 								case "measuredTemperature":
 								case "valveposition":
-									if (node.devices[device.address][field]) {
-										let previousValue = node.devices[device.address][field];
+									if (data[field] !== null && data[field] !== undefined) {
+										let previousValue = node.devices[device.address][field] || 0;
 										node.devices[device.address][field+"-prev"] = previousValue;
 										let currentValue = data[field];
 										let valueDiff = currentValue - previousValue;
-										let timeDiff = now - node.devices[device.address][field+"-timestamp"];
+										let timeDiff = now - (node.devices[device.address][field+"-timestamp"] || now);
 										let speed = valueDiff / timeDiff;
+										if (isNaN(speed)) {
+											speed = 0;
+										}
 										node.devices[device.address][field+"-diff"] = valueDiff;
 										node.devices[device.address][field+"-speed"] = speed;
 										node.devices[device.address][field+"-timestamp"] = now;
@@ -185,18 +188,22 @@ module.exports = function (RED) {
 									break;
 							}
 
-							node.devices[device.address][field] = data[field];
+							if (data[field] !== null && data[field] !== undefined) {
+								node.devices[device.address][field] = data[field];
+							}
 							break;
 					}
 				}
 
 				// Check if this node needs heating?
-				var tempNeedHeat = false;
+				var tempNeedHeat1 = false;
+				var tempNeedHeat2 = false;
 				if (node.devices[device.address].hasOwnProperty("measuredTemperature") &&
 					node.devices[device.address].hasOwnProperty("desiredTemperature") &&
 					node.devices[device.address].hasOwnProperty("measuredTemperature-speed")) {
 						let tempIncrease = (node.devices[device.address]["measuredTemperature-speed"] * (5*60)); //Increase of temp in 5 minutes.
-						tempNeedHeat = (node.devices[device.address].measuredTemperature + tempIncrease) < node.devices[device.address].desiredTemperature;
+						tempNeedHeat1 = node.devices[device.address].measuredTemperature < node.devices[device.address].desiredTemperature;
+						tempNeedHeat2 = (node.devices[device.address].measuredTemperature + tempIncrease) < node.devices[device.address].desiredTemperature;
 				}
 
 				// Check if this node needs heating?
@@ -211,7 +218,7 @@ module.exports = function (RED) {
 					globalNeedHeating = {};
 				}
 				globalNeedHeating[device.address] = {
-					tempNeedHeat: tempNeedHeat,
+					tempNeedHeat: tempNeedHeat2,
 					valveNeedHeat: valveNeedHeat
 				}
 				node.context().global.set("needHeating",globalNeedHeating);
@@ -220,7 +227,11 @@ module.exports = function (RED) {
 					send({
 						topic: "cul-max:message",
 						address: device.address,
-						payload: node.devices[device.address]
+						payload: node.devices[device.address],
+						needHeat:{
+							tempNeedHeat: tempNeedHeat2,
+							valveNeedHeat: valveNeedHeat
+						}
 					});
 				}
 
@@ -264,6 +275,15 @@ module.exports = function (RED) {
 
 			}
 			else {
+				if (msg["topic"] && 
+					msg.topic === "list") {
+						if (send) {
+							send({
+								topic:"cul-max-controller-list",
+								devices: node.devices
+							})
+						}
+					} 
 				if (done) {
 					done();
 				}
