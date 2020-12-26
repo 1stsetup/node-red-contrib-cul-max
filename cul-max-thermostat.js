@@ -45,7 +45,10 @@ module.exports = function (RED) {
 				case "HeatingThermostat":
 					newText += `Valve: ${node.device.valveposition !== undefined ?  node.device.valveposition : "-"}% - `;
 				case "WallMountedThermostat":
-					newText += `${node.device.measuredTemperature || "-"}°C/${node.device.desiredTemperature || "-"}°C`
+					newText += `${node.device.measuredTemperature || "-"}°C/${node.device.desiredTemperature || "-"}°C, Battery: ${node.device.battery}`
+					break;
+				case "ShutterContact":
+					newText += `State: ${node.device.isopen == 1 ? "Open" : "Closed"}, Battery: ${node.device.battery}`
 					break;
 			}
 			node.status({
@@ -95,6 +98,8 @@ module.exports = function (RED) {
 	}
 
     RED.nodes.registerType("cul-max-thermostat", CULMaxThermostat);
+    RED.nodes.registerType("cul-max-radiatorthermostat", CULMaxThermostat);
+    RED.nodes.registerType("cul-max-ShutterContact", CULMaxThermostat);
     console.log("Yup cul-max-thermostat");
     
 }

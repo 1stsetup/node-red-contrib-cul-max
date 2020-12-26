@@ -58,6 +58,74 @@
 
 </script>
 
+<script type="text/x-red" data-template-name="cul-max-radiatorthermostat">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"></label>
+        <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
+            <div style="position: absolute; left: 0px; right: 40px;">
+                <input type="text" id="node-input-controller" placeholder="1" style="width: 100%"/>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="hue-light.config.light"></span></label>
+        <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
+            <div style="position: absolute; left: 0px; right: 40px;">
+                <input type="text" id="node-input-address" placeholder="1" style="width: 100%"/>
+            </div>
+            <a id="node-config-input-scan-devices" class="editor-button" style="position: absolute; right: 0px; top: 0px;">
+                <i class="fa fa-search"></i>
+            </a>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="cul-max-radiatorthermostat">
+    <p>Use this to <b>inject</b> messages from a CUL device on the bus<br/>
+    	<b>msg.payload</b> will have the CUL message object.
+    </p>
+
+</script>
+
+<script type="text/x-red" data-template-name="cul-max-ShutterContact">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-controller"></label>
+        <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
+            <div style="position: absolute; left: 0px; right: 40px;">
+                <input type="text" id="node-input-controller" placeholder="1" style="width: 100%"/>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="hue-light.config.light"></span></label>
+        <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
+            <div style="position: absolute; left: 0px; right: 40px;">
+                <input type="text" id="node-input-address" placeholder="1" style="width: 100%"/>
+            </div>
+            <a id="node-config-input-scan-devices" class="editor-button" style="position: absolute; right: 0px; top: 0px;">
+                <i class="fa fa-search"></i>
+            </a>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="cul-max-ShutterContact">
+    <p>Use this to <b>inject</b> messages from a CUL device on the bus<br/>
+    	<b>msg.payload</b> will have the CUL message object.
+    </p>
+
+</script>
+
 <script type="text/javascript">
     RED.nodes.registerType('cul-max-thermostat', {
         category: 'cul-max',
@@ -70,7 +138,7 @@
         inputs: 1,
         outputs: 2,
         label: function () {
-            return (this.groupaddr || this.name || "CUL-MAX Thermostat");
+            return (this.groupaddr || this.name || "CUL-MAX WallMountedThermostat");
         },
         oneditprepare: function()
         {
@@ -91,7 +159,233 @@
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
                 console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
-                $.get('cul-max/devices', {controllerId: controllerConfig.id})
+                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "WallMountedThermostat"})
+                .done(function(data) {
+                    var lightBulbs = JSON.parse(data);
+
+                    if(lightBulbs.length <= 0)
+                    {
+                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                    }
+
+                    // RESET OPTIONS
+                    $('#node-input-address').empty();
+
+                    // SET LIGHTS AS OPTIONS
+                    lightBulbs.forEach(function(light)
+                    {
+                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                    });
+
+                    // SELECT CURRENT VALUE
+                    $('#node-input-address').val(current);
+                })
+                .fail(function()
+                {
+                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                });
+            }
+
+            $(document).on('change', '#node-input-address', function()
+            {
+                var lightName = $('#node-input-address option:selected').text();
+                if(lightName.length > 0)
+                {
+                    $('#node-input-name').val(lightName);
+                }
+            });
+
+            $('#node-config-input-scan-devices').click(function()
+            {
+                if($('#node-input-address').prop("tagName") === "INPUT")
+                {
+                    searchAndSelectAddress();
+                } else {
+                    manualLightID();
+                }
+            });
+
+            function searchAndSelectController()
+            {
+                var current = $('#node-input-controller').val();
+                $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
+                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+
+                $.get('cul-max/controllers')
+                .done(function(data) {
+                    var controllers = JSON.parse(data);
+
+                    if(controllers.length <= 0)
+                    {
+                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                    }
+
+                    // RESET OPTIONS
+                    $('#node-input-controller').empty();
+
+                    // SET LIGHTS AS OPTIONS
+                    controllers.forEach(function(controller)
+                    {
+                        $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                    });
+
+                    // SELECT CURRENT VALUE
+                    $('#node-input-controller').val(current);
+                })
+                .fail(function()
+                {
+                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                });
+            }
+            searchAndSelectController();
+        }
+    });
+    RED.nodes.registerType('cul-max-radiatorthermostat', {
+        category: 'cul-max',
+        color: '#ffffff',
+        defaults: {
+            name: {value: ""},
+            controller: {value: "", required: true},
+            address: {value:"", required: true},
+        },
+        inputs: 1,
+        outputs: 2,
+        label: function () {
+            return (this.groupaddr || this.name || "CUL-MAX HeatingThermostat");
+        },
+        oneditprepare: function()
+        {
+            var scope = this;
+
+            function manualLightID()
+            {
+                var current = $('#node-input-address').val();
+                $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
+                $('#node-input-address').val(current);
+            }
+
+            function searchAndSelectAddress()
+            {
+                var current = $('#node-input-address').val();
+                $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
+                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+
+                var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
+                console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
+                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "HeatingThermostat"})
+                .done(function(data) {
+                    var lightBulbs = JSON.parse(data);
+
+                    if(lightBulbs.length <= 0)
+                    {
+                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                    }
+
+                    // RESET OPTIONS
+                    $('#node-input-address').empty();
+
+                    // SET LIGHTS AS OPTIONS
+                    lightBulbs.forEach(function(light)
+                    {
+                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                    });
+
+                    // SELECT CURRENT VALUE
+                    $('#node-input-address').val(current);
+                })
+                .fail(function()
+                {
+                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                });
+            }
+
+            $(document).on('change', '#node-input-address', function()
+            {
+                var lightName = $('#node-input-address option:selected').text();
+                if(lightName.length > 0)
+                {
+                    $('#node-input-name').val(lightName);
+                }
+            });
+
+            $('#node-config-input-scan-devices').click(function()
+            {
+                if($('#node-input-address').prop("tagName") === "INPUT")
+                {
+                    searchAndSelectAddress();
+                } else {
+                    manualLightID();
+                }
+            });
+
+            function searchAndSelectController()
+            {
+                var current = $('#node-input-controller').val();
+                $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
+                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+
+                $.get('cul-max/controllers')
+                .done(function(data) {
+                    var controllers = JSON.parse(data);
+
+                    if(controllers.length <= 0)
+                    {
+                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                    }
+
+                    // RESET OPTIONS
+                    $('#node-input-controller').empty();
+
+                    // SET LIGHTS AS OPTIONS
+                    controllers.forEach(function(controller)
+                    {
+                        $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                    });
+
+                    // SELECT CURRENT VALUE
+                    $('#node-input-controller').val(current);
+                })
+                .fail(function()
+                {
+                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                });
+            }
+            searchAndSelectController();
+        }
+    });
+    RED.nodes.registerType('cul-max-ShutterContact', {
+        category: 'cul-max',
+        color: '#ffffff',
+        defaults: {
+            name: {value: ""},
+            controller: {value: "", required: true},
+            address: {value:"", required: true},
+        },
+        inputs: 1,
+        outputs: 2,
+        label: function () {
+            return (this.groupaddr || this.name || "CUL-MAX ShutterContact");
+        },
+        oneditprepare: function()
+        {
+            var scope = this;
+
+            function manualLightID()
+            {
+                var current = $('#node-input-address').val();
+                $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
+                $('#node-input-address').val(current);
+            }
+
+            function searchAndSelectAddress()
+            {
+                var current = $('#node-input-address').val();
+                $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
+                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+
+                var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
+                console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
+                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "ShutterContact"})
                 .done(function(data) {
                     var lightBulbs = JSON.parse(data);
 
