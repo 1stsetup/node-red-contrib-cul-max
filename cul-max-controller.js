@@ -268,10 +268,12 @@ module.exports = function (RED) {
 				msg.payload["protocol"] && 
 				msg.payload.protocol == "MORITZ") {
 
-				node.processMaxMsg({
-					address: msg.payload.address,
-					device: msg.payload.device
-				}, msg.payload.data, send, done);
+				if (msg.payload.hasOwnProperty("data") && !msg.payload.data.hasOwnProperty("culfw")) {
+					node.processMaxMsg({
+						address: msg.payload.address,
+						device: msg.payload.device
+					}, msg.payload.data, send, done);
+				}
 
 			}
 			else {

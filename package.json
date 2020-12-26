@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-cul-max",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "CUL-MAX for node-red",
   "main": "cul-max.js",
   "scripts": {
