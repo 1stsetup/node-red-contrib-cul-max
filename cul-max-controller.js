@@ -19,6 +19,20 @@ const IGNORE_FIELDS = [
 	"getKeyByValue"
 ]
 
+function prefix(inStr, char, len) {
+	var result = inStr;
+	while(result.length < len) {
+		result = char + result;
+	}
+	return result;
+}
+
+let msgCounter = 0;
+function nextMsgCounter() {
+	msgCounter = (msgCounter + 1) & 0xFF;
+	return prefix(msgCounter.toString(16),'0',2);
+}
+
 module.exports = function (RED) {
 
 	var self = this;
@@ -34,6 +48,7 @@ module.exports = function (RED) {
 		this.name = config.name;
 		this.address = config.address;
 		var node = this;
+		this.receivingDevices = {};
 
 		if(!self.controllers) {
 			self.controllers = {};
@@ -41,6 +56,38 @@ module.exports = function (RED) {
 		self.controllers[this.id] = this;
 
 		this.devices = {};
+
+		node.getDevice = function(address) {
+			if (node.devices[address]) {
+				return node.devices[address];
+			}
+			return null;
+		}
+
+		node.on("sendTo", function(address, cmd, payload) {
+			// Z 0B 1F 00 40 123456 0E14C1 00 65 05
+			let packet = {
+				msgCnt: nextMsgCounter(),
+				msgFlag: "00",
+				msgType: cmd,
+				src: node.address,
+				dst: address,
+				groupId: "00",
+				payload: payload,
+				toString: function() {
+					return (this.msgCnt+this.msgFlag+this.msgType+this.src+this.dst+this.groupId+this.payload).toUpperCase();
+				}
+			};
+
+			let packetStr = packet.toString();
+			let len = prefix((packetStr.length/2).toString(16),'0',2).toUpperCase();
+			packetStr = "Zs" + len + packetStr;
+			node.log("sendTo packet:"+packetStr+"|");
+			node.send([null, {
+				topic: "raw",
+				payload: packetStr
+			}])
+		});
 
 		node.updateStatus = function() {
 			let count = 0;
@@ -108,6 +155,11 @@ module.exports = function (RED) {
 
 			if (device["device"]) {
 				node.devices[device.address].device = device.device;
+			}
+
+			if (node.receivingDevices[device.address]) {
+				node.log(`Adding name '${node.receivingDevices[device.address].name}' to address '${device.address}'`)
+				node.devices[device.address].name =node.receivingDevices[device.address].name;
 			}
 
 			if (data) {
@@ -224,7 +276,7 @@ module.exports = function (RED) {
 				node.context().global.set("needHeating",globalNeedHeating);
 
 				if (send) {
-					send({
+					send([{
 						topic: "cul-max:message",
 						address: device.address,
 						payload: node.devices[device.address],
@@ -232,7 +284,7 @@ module.exports = function (RED) {
 							tempNeedHeat: tempNeedHeat2,
 							valveNeedHeat: valveNeedHeat
 						}
-					});
+					},null]);
 				}
 
 				if (node.receivingDevices[device.address]) {
@@ -246,7 +298,6 @@ module.exports = function (RED) {
 
 		}
 
-		this.receivingDevices = {};
 		this.addReceivingDevice = function (receiver) {
 			node.receivingDevices[receiver.address] = receiver;
 		}
@@ -280,10 +331,10 @@ module.exports = function (RED) {
 				if (msg["topic"] && 
 					msg.topic === "list") {
 						if (send) {
-							send({
+							send([{
 								topic:"cul-max-controller-list",
 								devices: node.devices
-							})
+							},null])
 						}
 					} 
 				if (done) {
