@@ -262,7 +262,7 @@ module.exports = function (RED) {
 				var valveNeedHeat = false;
 				if (node.devices[device.address].hasOwnProperty("valveposition") &&
 					node.devices[device.address].hasOwnProperty("valveposition-diff")) {
-						valveNeedHeat = ((node.devices[device.address].valveposition > 20) && (node.devices[device.address]["valveposition-diff"] >= 0));
+						valveNeedHeat = (((node.devices[device.address].valveposition > 20) && (node.devices[device.address]["valveposition-diff"] >= 0)) || (node.devices[device.address].valveposition >= 50));
 				}
 
 				let globalNeedHeating = node.context().global.get("needHeating");

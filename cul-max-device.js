@@ -45,12 +45,6 @@ module.exports = function (RED) {
 			node.controller && node.controller.removeReceivingDevice && node.controller.removeReceivingDevice(node);
 		});
 
-        this.on("input", function (msg) {
-			if (msg != null) {
-
-			}
-		});
-
 		node.updateStatus = function() {
 			var newText = "";
 			switch (node.device.device) {
