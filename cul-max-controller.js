@@ -261,8 +261,9 @@ module.exports = function (RED) {
 				// Check if this node needs heating?
 				var valveNeedHeat = false;
 				if (node.devices[device.address].hasOwnProperty("valveposition") &&
-					node.devices[device.address].hasOwnProperty("valveposition-diff")) {
-						valveNeedHeat = (((node.devices[device.address].valveposition > 20) && (node.devices[device.address]["valveposition-diff"] >= 0)) || (node.devices[device.address].valveposition >= 50));
+					node.receivingDevices[device.address]) {
+//						valveNeedHeat = (((node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve) && (node.devices[device.address]["valveposition-diff"] >= 0)) || (node.devices[device.address].valveposition >= 50));
+						valveNeedHeat = (node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve);
 				}
 
 				let globalNeedHeating = node.context().global.get("needHeating");
