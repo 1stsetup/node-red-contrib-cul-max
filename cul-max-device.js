@@ -35,7 +35,7 @@ module.exports = function (RED) {
 		this.name = config.name;
         this.controller = RED.nodes.getNode(config.controller);
 		this.address = config.address;
-		this.minvalve = config.minvalve;
+		this.minvalve = config.hasOwnProperty("minvalve") ? config.minvalve : 20;
 		var node = this;
 
 		if (node.controller && node.controller.addReceivingDevice) {
