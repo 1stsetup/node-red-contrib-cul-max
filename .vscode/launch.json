@@ -5,13 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "node",
+            "name": "test",
+            "program": "${workspaceFolder}/test.js",
             "request": "launch",
-            "name": "openthermgw_example",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "program": "/home/miv/git/nodejs-openthermGateway/openthermgw_example.js"
+            "type": "pwa-node"
         }
+        
     ]
 }

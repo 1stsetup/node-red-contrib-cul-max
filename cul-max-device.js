@@ -11,7 +11,25 @@ const fs = require('fs');
 const path = require('path');
 
 const cmd2MsgId = {
-	"SetTemperature": "40"
+	"SetTemperature": "40",
+	"ConfigWeekProfile": "10"
+}
+
+const WEEKDAYS = {
+	"sat": 0,
+	"sun": 1,
+	"mon": 2,
+	"tue": 3,
+	"wed": 4,
+	"thu": 5,
+	"fri": 6,
+	"saturday": 0,
+	"sunday": 1,
+	"monday": 2,
+	"tuesday": 3,
+	"wednesday": 4,
+	"thursday": 5,
+	"friday": 6
 }
 
 function prefix(inStr, char, len) {
@@ -104,14 +122,147 @@ module.exports = function (RED) {
 			}
 		}
 
+		this.setControlPoints = function(payload, send, done) {
+			// Construct payload for controller
+			// example payload: 0 2 3C45 5454 3CFE 5508 3D20 4520 4520 0 7
+			// 0x3c45 == 15429 == 0b11110001000101
+			//   temp >> 9 == 0b11110 == 30
+			//   time == 0b001000101 == 69 --> * 5 == 345
+			// 0x5454 == 21588 == 0b101010001010100
+			//   temp >> 9 == 0b101010
+			// weekday 2 monday
+			// 1st point temp 15degC 0:00
+			// 2nd point temp 21degC 05:45
+			// 3rd point temp 15deg 07:00
+			// 4th point temp 21deg 21:10
+			// 5th point temp 15deg 22:00
+			//
+			// $newWeekprofilePart .= sprintf("%04x", (int($temperature*2) << 9) | int(($hour * 60 + $min)/5));
+			// First 7 control points sprintf("0%1d%s", $day, substr($newWeekprofilePart,0,2*2*7))
+			// Remaining 6 control points sprintf("1%1d%s", $day, substr($newWeekprofilePart,2*2*7,2*2*6))
+			// First digit specifies which set of control points:
+			//   0 : first 7
+			//   1 : remaining 6
+			// Second digit is weekday
+			//  (0 => 'Sat', 1 => 'Sun', 2 => 'Mon', 3 => 'Tue', 4 => 'Wed', 5 => 'Thu', 6 => 'Fri');
+			//
+			// Next 7 or 6 2 byte hex values are controlpoints
+			// Last two digits are unknown for now ??
+			// data.setId = data.payload.substr(0,1);
+			// let controlpointCount = (data.setId == 0) ? 7 : 6;
+			// if (data.payload.length >= (2+controlpointCount*4)) {
+			// 	data.weekday = data.payload.substr(1,1);
+			// 	data.weekdayStr = day2str[data.weekday];
+			// 	data.controlpoints = [];
+			// 	let previousHour = 0;
+			// 	let previousMinute = 0;
+			// 	for(var i=0; i<controlpointCount; i++) {
+			// 		let controlpoint = hex2byte(data.payload.substr(2+(i*4),4));
+			// 		let temperature = ((controlpoint >> 9) & 0x3F) / 2;
+			// 		let time = (controlpoint & 0x1FF) * 5;
+			// 		let hour = Math.floor((time / 60) % 24);
+			// 		let minute = time % 60;
+
+			if (payload && ("controlPoints" in payload) && ("weekday" in payload)) {
+				let messages = [];
+				let bits = [];
+
+				// Push first set of ocntrol points
+				bits.push("0");
+
+				// Push weekday number
+				let weekday;
+				if (typeof payload.weekday == "number") {
+					weekday = payload.weekday.toString(16);
+					bits.push(weekday);
+				}
+				else {
+					if (payload.weekday.toLowerCase() in WEEKDAYS) {
+						weekday = WEEKDAYS[payload.weekday.toLowerCase()].toString(16)
+						bits.push(weekday);
+					}
+					else {
+						if (done) done();
+						return;
+					}
+				}
+
+				// push controlpoints.
+				// Our array must contain a temperature en the time when this temperature will be set.
+				// We are first going to sort on time.
+				payload.controlPoints.sort((a,b) => {
+					if (((a.hour*100)+a.minute) < ((b.hour*100)+b.minute)) return -1;
+					if (((a.hour*100)+a.minute) > ((b.hour*100)+b.minute)) return 1;
+					return 0;
+				})
+
+				// We now need to build out list where the first part is first temperature but time of second.
+				// The last part will have last temperature and time 00:00.
+				for(let idx=0; idx<payload.controlPoints.length; idx++) {
+					if (idx == 7) {
+						messages.push(bits);
+						let weekday = bits[1];
+						bits = [ "1",weekday];
+					}
+					let temp = payload.controlPoints[idx].temperature;
+					let hour = 24;
+					let minute = 0;
+					if (idx < payload.controlPoints.length - 1) {
+						hour = payload.controlPoints[idx+1].hour;
+						minute = payload.controlPoints[idx+1].minute;
+					}
+					let time = Math.round(((hour + (minute/60))*60) / 5);
+		
+					let data = ((temp * 2) << 9) + time;
+					bits.push(prefix(data.toString(16),'0',4))
+				}
+		
+				let len = (bits[0] == "0") ? 7 : 6;
+				while (bits.length < len+2) {
+					bits.push("4520");
+				}
+
+				messages.push(bits);
+
+				if (messages.length == 1) {
+					// Add second empty message.
+					messages.push([`1${weekday}`]);
+				}
+
+				console.log(`messages.length: ${messages.length}`)
+				for(let idx=0; idx< messages.length; idx++) {
+					console.log(`messages[idx]: ${messages[idx]}`)
+					let culMaxPayload = messages[idx].join("");
+					console.log(`Going to send 'ConfigWeekProfile':${culMaxPayload}`);
+					node.controller.emit("sendTo", node.address, cmd2MsgId["ConfigWeekProfile"], culMaxPayload);
+				}
+			}
+			if (done) {
+				done();
+			}
+		}
+
 		this.on("input", function (msg, send, done) {
 			send = send || function() { node.send.apply(node,arguments) };
 			if (msg && msg.hasOwnProperty("topic")) {
+				let device;
 				switch (msg.topic) {
 					case "SetTemperature":
-						let device = node.controller.getDevice(node.address);
+						device = node.controller.getDevice(node.address);
 						if (device !== null && device.device == "HeatingThermostat" || device.device == "WallMountedThermostat") {
 							node.setTemperature(msg.payload, send, done);
+						}
+						else {
+							if (done) {
+								done();
+							}
+						}
+						break;
+					case "SetControlPoints":
+						device = node.controller.getDevice(node.address);
+						console.log(`device: ${device.device}`)
+						if (device !== null && device.device == "HeatingThermostat" || device.device == "WallMountedThermostat") {
+							node.setControlPoints(msg.payload, send, done);
 						}
 						else {
 							if (done) {
