@@ -9,6 +9,7 @@ const path = require('path');
 const { deflateRawSync } = require('zlib');
 
 const SAVED_MAX_DEVICES = "_saved_max_devices.json";
+const ACK_TIMEOUT = 3000; // 3 seconds
 
 const IGNORE_FIELDS = [
 	"len",
@@ -50,6 +51,9 @@ module.exports = function (RED) {
 		var node = this;
 		this.receivingDevices = {};
 
+		this.sendQueue = [];
+		this.sendTimeout;
+
 		if(!self.controllers) {
 			self.controllers = {};
 		}
@@ -62,6 +66,40 @@ module.exports = function (RED) {
 				return node.devices[address];
 			}
 			return null;
+		}
+
+		node.resendPacket = function() {
+			if (node.sendQueue.length > 0) {
+				if (node.sendQueue[0].tryCount < 3) {
+					node.sendQueue[0].tryCount++;
+					node.log("sendTo packet:"+node.sendQueue[0].packetStr+"|");
+					node.send([null, {
+						topic: "raw",
+						payload: node.sendQueue[0].packetStr
+					}])
+		
+					node.sendTimeout = setTimeout(node.resendPacket, ACK_TIMEOUT);
+		
+				}
+				else {
+					// unable to send. Drop this request.
+					node.log(`Destination '${node.sendQueue[0].dst}' is not responding to packets. Dropping packets.`);
+					node.sendQueue.shift();
+					node.sendTimeout = undefined;
+					node.resendPacket();
+				}
+			}
+		}
+		node.addToSendQueue = function (src, dst, packetStr) {
+			node.sendQueue.push({
+				src: src,
+				dst: dst,
+				packetStr: packetStr,
+				tryCount: 0
+			});
+			if (!node.sendTimeout) {
+				node.resendPacket();
+			}
 		}
 
 		node.on("sendTo", function(address, cmd, payload) {
@@ -82,11 +120,7 @@ module.exports = function (RED) {
 			let packetStr = packet.toString();
 			let len = prefix((packetStr.length/2).toString(16),'0',2).toUpperCase();
 			packetStr = "Zs" + len + packetStr;
-			node.log("sendTo packet:"+packetStr+"|");
-			node.send([null, {
-				topic: "raw",
-				payload: packetStr
-			}])
+			node.addToSendQueue(node.address, address, packetStr);
 		});
 
 		node.updateStatus = function() {
@@ -238,6 +272,17 @@ module.exports = function (RED) {
 										node.devices[device.address][field+"-timestamp"] = now;
 									}
 									break;
+								case "msgType":
+									if ((data[field] == "Ack") && (node.sendQueue.length > 0)) {
+										// See if this is an ack to one of our message we send out.
+										if (data.src == node.sendQueue[0].dst && data.dst == node.sendQueue[0].src) {
+											node.log(`Received ack to msg: ${node.sendQueue[0].packetStr}`);
+											clearTimeout(node.sendTimeout);
+											node.sendTimeout = undefined;
+											node.sendQueue.shift();
+											node.resendPacket();
+										}
+									}
 							}
 
 							if (data[field] !== null && data[field] !== undefined) {
@@ -326,7 +371,6 @@ module.exports = function (RED) {
 						device: msg.payload.device
 					}, msg.payload.data, send, done);
 				}
-
 			}
 			else {
 				if (msg["topic"] && 
