@@ -12,7 +12,8 @@ const path = require('path');
 
 const cmd2MsgId = {
 	"SetTemperature": "40",
-	"ConfigWeekProfile": "10"
+	"ConfigWeekProfile": "10",
+	"SetDisplayActualTemperature": "82",
 }
 
 const WEEKDAYS = {
@@ -34,7 +35,7 @@ const WEEKDAYS = {
 
 function prefix(inStr, char, len) {
 	var result = inStr;
-	while(result.length < len) {
+	while (result.length < len) {
 		result = char + result;
 	}
 	return result;
@@ -51,9 +52,11 @@ module.exports = function (RED) {
 	function CULMaxThermostat(config) {
 		RED.nodes.createNode(this, config);
 		this.name = config.name;
-        this.controller = RED.nodes.getNode(config.controller);
+		this.controller = RED.nodes.getNode(config.controller);
 		this.address = config.address;
 		this.minvalve = config.hasOwnProperty("minvalve") ? config.minvalve : 20;
+		this.syncTime = config.syncTime;
+
 		var node = this;
 
 		if (node.controller && node.controller.addReceivingDevice) {
@@ -64,11 +67,11 @@ module.exports = function (RED) {
 			node.controller && node.controller.removeReceivingDevice && node.controller.removeReceivingDevice(node);
 		});
 
-		node.updateStatus = function() {
+		node.updateStatus = function () {
 			var newText = "";
 			switch (node.device.device) {
 				case "HeatingThermostat":
-					newText += `Valve: ${node.device.valveposition !== undefined ?  node.device.valveposition : "-"}% - `;
+					newText += `Valve: ${node.device.valveposition !== undefined ? node.device.valveposition : "-"}% - `;
 				case "WallMountedThermostat":
 					newText += `${node.device.measuredTemperature || "-"}°C/${node.device.desiredTemperature || "-"}°C, Battery: ${node.device.battery}`
 					break;
@@ -86,9 +89,9 @@ module.exports = function (RED) {
 
 		this.on("data", function (device) {
 			if (device != null) {
-                node.send({
-                    topic:"cul-max-thermostat:"+node.address,
-                    payload: device
+				node.send({
+					topic: "cul-max-thermostat:" + node.address,
+					payload: device
 				})
 				node.device = device;
 				node.updateStatus();
@@ -96,14 +99,32 @@ module.exports = function (RED) {
 		});
 
 
-        		// 		// Check if we want heating or not.
-				// if (node.devices[device.address]["measuredTemperature-diff"] && node.devices[device.address]["desiredTemparature"]) {
-				// 	// Calculate what the temperature will be in 5 minutes
-					
-				// }
+		// 		// Check if we want heating or not.
+		// if (node.devices[device.address]["measuredTemperature-diff"] && node.devices[device.address]["desiredTemparature"]) {
+		// 	// Calculate what the temperature will be in 5 minutes
+
+		// }
 
 		/* ===== Node-Red events ===== */
-		this.setTemperature = function(payload, send, done) {
+		this.doSyncTime = function (done) {
+
+			if (done) {
+				done();
+			}
+		}
+
+		this.setDisplayActualTemperature = function (payload, send, done) {
+			if (payload !== undefined) {
+				let bits = payload ? 4 : 0;
+				let culMaxPayload = prefix(bits.toString(16), '0', 2);
+				node.controller.emit("sendTo", node.address, cmd2MsgId["SetDisplayActualTemperature"], culMaxPayload);
+			}
+			if (done) {
+				done();
+			}
+		}
+
+		this.setTemperature = function (payload, send, done) {
 			// Construct payload for controller
 			let culMaxPayload;
 			if (payload) {
@@ -114,7 +135,7 @@ module.exports = function (RED) {
 				if (payload.hasOwnProperty("desiredTemperature")) {
 					bits |= (payload.desiredTemperature * 2) & 0x3F;
 				}
-				culMaxPayload = prefix(bits.toString(16),'0',2);
+				culMaxPayload = prefix(bits.toString(16), '0', 2);
 				node.controller.emit("sendTo", node.address, cmd2MsgId["SetTemperature"], culMaxPayload);
 			}
 			if (done) {
@@ -122,7 +143,7 @@ module.exports = function (RED) {
 			}
 		}
 
-		this.setControlPoints = function(payload, send, done) {
+		this.setControlPoints = function (payload, send, done) {
 			// Construct payload for controller
 			// example payload: 0 2 3C45 5454 3CFE 5508 3D20 4520 4520 0 7
 			// 0x3c45 == 15429 == 0b11110001000101
@@ -190,35 +211,35 @@ module.exports = function (RED) {
 				// push controlpoints.
 				// Our array must contain a temperature en the time when this temperature will be set.
 				// We are first going to sort on time.
-				payload.controlPoints.sort((a,b) => {
-					if (((a.hour*100)+a.minute) < ((b.hour*100)+b.minute)) return -1;
-					if (((a.hour*100)+a.minute) > ((b.hour*100)+b.minute)) return 1;
+				payload.controlPoints.sort((a, b) => {
+					if (((a.hour * 100) + a.minute) < ((b.hour * 100) + b.minute)) return -1;
+					if (((a.hour * 100) + a.minute) > ((b.hour * 100) + b.minute)) return 1;
 					return 0;
 				})
 
 				// We now need to build out list where the first part is first temperature but time of second.
 				// The last part will have last temperature and time 00:00.
-				for(let idx=0; idx<payload.controlPoints.length; idx++) {
+				for (let idx = 0; idx < payload.controlPoints.length; idx++) {
 					if (idx == 7) {
 						messages.push(bits);
 						let weekday = bits[1];
-						bits = [ "1",weekday];
+						bits = ["1", weekday];
 					}
 					let temp = payload.controlPoints[idx].temperature;
 					let hour = 24;
 					let minute = 0;
 					if (idx < payload.controlPoints.length - 1) {
-						hour = payload.controlPoints[idx+1].hour;
-						minute = payload.controlPoints[idx+1].minute;
+						hour = payload.controlPoints[idx + 1].hour;
+						minute = payload.controlPoints[idx + 1].minute;
 					}
-					let time = Math.round(((hour + (minute/60))*60) / 5);
-		
+					let time = Math.round(((hour + (minute / 60)) * 60) / 5);
+
 					let data = ((temp * 2) << 9) + time;
-					bits.push(prefix(data.toString(16),'0',4))
+					bits.push(prefix(data.toString(16), '0', 4))
 				}
-		
+
 				let len = (bits[0] == "0") ? 7 : 6;
-				while (bits.length < len+2) {
+				while (bits.length < len + 2) {
 					bits.push("4520");
 				}
 
@@ -230,7 +251,7 @@ module.exports = function (RED) {
 				}
 
 				console.log(`messages.length: ${messages.length}`)
-				for(let idx=0; idx< messages.length; idx++) {
+				for (let idx = 0; idx < messages.length; idx++) {
 					console.log(`messages[idx]: ${messages[idx]}`)
 					let culMaxPayload = messages[idx].join("");
 					console.log(`Going to send 'ConfigWeekProfile':${culMaxPayload}`);
@@ -243,13 +264,13 @@ module.exports = function (RED) {
 		}
 
 		this.on("input", function (msg, send, done) {
-			send = send || function() { node.send.apply(node,arguments) };
+			send = send || function () { node.send.apply(node, arguments) };
 			if (msg && msg.hasOwnProperty("topic")) {
 				let device;
 				switch (msg.topic) {
 					case "SetTemperature":
 						device = node.controller.getDevice(node.address);
-						if (device !== null && device.device == "HeatingThermostat" || device.device == "WallMountedThermostat") {
+						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
 							node.setTemperature(msg.payload, send, done);
 						}
 						else {
@@ -261,8 +282,20 @@ module.exports = function (RED) {
 					case "SetControlPoints":
 						device = node.controller.getDevice(node.address);
 						console.log(`device: ${device.device}`)
-						if (device !== null && device.device == "HeatingThermostat" || device.device == "WallMountedThermostat") {
+						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
 							node.setControlPoints(msg.payload, send, done);
+						}
+						else {
+							if (done) {
+								done();
+							}
+						}
+						break;
+					case "SetDisplayActualTemperature":
+						device = node.controller.getDevice(node.address);
+						console.log(`device: ${device.device}`)
+						if (device !== null && device.device == "WallMountedThermostat") {
+							node.setDisplayActualTemperature(msg.payload, send, done);
 						}
 						else {
 							if (done) {
@@ -273,7 +306,7 @@ module.exports = function (RED) {
 					default:
 						if (done) {
 							done();
-						}		
+						}
 				}
 			}
 			else {
@@ -284,19 +317,19 @@ module.exports = function (RED) {
 
 
 
-        });
+		});
 
 		this.on("close", function (removed, done) {
-            if (done) {
-                done();
-            }
+			if (done) {
+				done();
+			}
 		});
 
 	}
 
-    RED.nodes.registerType("cul-max-thermostat", CULMaxThermostat);
-    RED.nodes.registerType("cul-max-radiatorthermostat", CULMaxThermostat);
-    RED.nodes.registerType("cul-max-ShutterContact", CULMaxThermostat);
-    console.log("Yup cul-max-thermostat");
-    
+	RED.nodes.registerType("cul-max-thermostat", CULMaxThermostat);
+	RED.nodes.registerType("cul-max-radiatorthermostat", CULMaxThermostat);
+	RED.nodes.registerType("cul-max-ShutterContact", CULMaxThermostat);
+	console.log("Yup cul-max-thermostat");
+
 }
