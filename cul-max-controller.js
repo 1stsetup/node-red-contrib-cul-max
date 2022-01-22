@@ -350,17 +350,20 @@ module.exports = function (RED) {
 				}
 
 
-				node.log(`name:${node.devices[device.address].name}, useForHeating:${node.receivingDevices[device.address].useForHeating}`)
-				if ("useForHeating" in node.receivingDevices[device.address] && node.receivingDevices[device.address].useForHeating === true) {
-					let globalNeedHeating = node.context().global.get("needHeating");
-					if (!globalNeedHeating) {
-						globalNeedHeating = {};
-					}
-					globalNeedHeating[device.address] = {
-						tempNeedHeat: tempNeedHeat2,
-						valveNeedHeat: valveNeedHeat
-					}
-					node.context().global.set("needHeating", globalNeedHeating);
+				let receivingDevice = node.receivingDevices[device.address];
+				if (receivingDevice) {
+					node.log(`name:${node.devices[device.address].name}, useForHeating:${receivingDevice.useForHeating}`)
+					if ("useForHeating" in receivingDevice && receivingDevice.useForHeating === true) {
+						let globalNeedHeating = node.context().global.get("needHeating");
+						if (!globalNeedHeating) {
+							globalNeedHeating = {};
+						}
+						globalNeedHeating[device.address] = {
+							tempNeedHeat: tempNeedHeat2,
+							valveNeedHeat: valveNeedHeat
+						}
+						node.context().global.set("needHeating", globalNeedHeating);
+					}	
 				}
 
 				if (send) {
@@ -431,9 +434,19 @@ module.exports = function (RED) {
 				if (msg["topic"] &&
 					msg.topic === "list") {
 					if (send) {
+						let list = {};
+						for(let name in node.devices) {
+							if (name !== "hasOwnProperty" && name !== "getKeyByValue") {
+								let id = name;
+								if ("name" in node.devices[name]) {
+									id += ` (${node.devices[name].name})`
+								}
+								list[id] = node.devices[name];
+							}
+						}
 						send([{
 							topic: "cul-max-controller-list",
-							devices: node.devices
+							devices: list
 						}, null])
 					}
 				}
