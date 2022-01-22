@@ -22,7 +22,7 @@ const IGNORE_FIELDS = [
 
 function prefix(inStr, char, len) {
 	var result = inStr;
-	while(result.length < len) {
+	while (result.length < len) {
 		result = char + result;
 	}
 	return result;
@@ -31,7 +31,7 @@ function prefix(inStr, char, len) {
 let msgCounter = 0;
 function nextMsgCounter() {
 	msgCounter = (msgCounter + 1) & 0xFF;
-	return prefix(msgCounter.toString(16),'0',2);
+	return prefix(msgCounter.toString(16), '0', 2);
 }
 
 module.exports = function (RED) {
@@ -54,55 +54,91 @@ module.exports = function (RED) {
 		this.sendQueue = [];
 		this.sendTimeout;
 
-		if(!self.controllers) {
+		if (!self.controllers) {
 			self.controllers = {};
 		}
 		self.controllers[this.id] = this;
 
 		this.devices = {};
 
-		node.getDevice = function(address) {
+		node.getDevice = function (address) {
 			if (node.devices[address]) {
 				return node.devices[address];
 			}
 			return null;
 		}
 
-		node.resendPacket = function() {
+		this.needPreamble = true;
+		this.waitingForCredit = false;
+
+		this.sleepFactor = 10;
+
+		node.checkAvailableTime = function (availableTime, wait) {
+			let sleepTime = wait * 10 * (availableTime === undefined ? 1 : node.sleepFactor);
+			if (sleepTime < 2000 && availableTime !== undefined) sleepTime = 5000;
+
+			node.log(`Waiting for enough credit. Sleeping: ${sleepTime}ms`);
+			node.waitingForCredit = true;
+			setTimeout(() => {
+				node.send([null, {
+					topic: "raw",
+					payload: "X"
+				}]);
+			}, sleepTime);
+		}
+
+		node.resendPacket = function (availableTime) {
+			node.updateStatus(availableTime);
+			if (node.waitingForCredit) return;
 			if (node.sendQueue.length > 0) {
-				if (node.sendQueue[0].tryCount < 3) {
-					node.sendQueue[0].tryCount++;
-					node.log("sendTo packet:"+node.sendQueue[0].packetStr+"|");
-					node.send([null, {
-						topic: "raw",
-						payload: node.sendQueue[0].packetStr
-					}])
-		
-					node.sendTimeout = setTimeout(node.resendPacket, ACK_TIMEOUT);
-		
+				let timeNeeded = (node.needPreamble ? 100 : 0) + (node.sendQueue[0].len * 8) / 10;
+
+				if (availableTime !== undefined && timeNeeded <= availableTime) {
+					// We can really send data.
+					node.log(`Enough credit available. We need: ${timeNeeded} and have available ${availableTime}`)
+					if (node.sendQueue[0].tryCount < 3) {
+						node.sendQueue[0].tryCount++;
+						node.log("sendTo packet:" + node.sendQueue[0].packetStr + "|");
+						node.send([null, {
+							topic: "raw",
+							payload: node.sendQueue[0].packetStr
+						}])
+
+						node.sendTimeout = setTimeout(node.resendPacket, ACK_TIMEOUT);
+
+					}
+					else {
+						// unable to send. Drop this request.
+						node.log(`Destination '${node.sendQueue[0].dst}' is not responding to packets. Dropping packets.`);
+						node.sendQueue.shift();
+						node.sendTimeout = undefined;
+						node.resendPacket();
+					}
+					return;
 				}
 				else {
-					// unable to send. Drop this request.
-					node.log(`Destination '${node.sendQueue[0].dst}' is not responding to packets. Dropping packets.`);
-					node.sendQueue.shift();
-					node.sendTimeout = undefined;
-					node.resendPacket();
+					node.log(`availableTime: ${availableTime}, timeNeeded: ${timeNeeded}`);
+					node.checkAvailableTime(availableTime, timeNeeded - (availableTime === undefined ? 0 : availableTime));
+					return;
 				}
+
 			}
 		}
-		node.addToSendQueue = function (src, dst, packetStr) {
+		node.addToSendQueue = function (src, dst, packetStr, len) {
 			node.sendQueue.push({
 				src: src,
 				dst: dst,
 				packetStr: packetStr,
+				len: len,
 				tryCount: 0
 			});
 			if (!node.sendTimeout) {
 				node.resendPacket();
 			}
+			node.updateStatus();
 		}
 
-		node.on("sendTo", function(address, cmd, payload) {
+		node.on("sendTo", function (address, cmd, payload) {
 			// Z 0B 1F 00 40 123456 0E14C1 00 65 05
 			let packet = {
 				msgCnt: nextMsgCounter(),
@@ -112,18 +148,18 @@ module.exports = function (RED) {
 				dst: address,
 				groupId: "00",
 				payload: payload,
-				toString: function() {
-					return (this.msgCnt+this.msgFlag+this.msgType+this.src+this.dst+this.groupId+this.payload).toUpperCase();
+				toString: function () {
+					return (this.msgCnt + this.msgFlag + this.msgType + this.src + this.dst + this.groupId + this.payload).toUpperCase();
 				}
 			};
 
 			let packetStr = packet.toString();
-			let len = prefix((packetStr.length/2).toString(16),'0',2).toUpperCase();
+			let len = prefix((packetStr.length / 2).toString(16), '0', 2).toUpperCase();
 			packetStr = "Zs" + len + packetStr;
-			node.addToSendQueue(node.address, address, packetStr);
+			node.addToSendQueue(node.address, address, packetStr, packetStr.length / 2);
 		});
 
-		node.updateStatus = function() {
+		node.updateStatus = function (availableTime) {
 			let count = 0;
 			for (var address in node.devices) {
 				count++;
@@ -132,13 +168,13 @@ module.exports = function (RED) {
 			node.status({
 				fill: "green",
 				shape: "dot",
-				text: `${count} devices`
+				text: `${count} devices, sendQueue: ${node.sendQueue.length}${availableTime === undefined ? "" : ", credit:"+availableTime}`
 			});
 
 		}
 
-		node.loadDevices = function(data) {
-			for(var address in data) {
+		node.loadDevices = function (data) {
+			for (var address in data) {
 				if (node.devices[address]) {
 					// update
 				}
@@ -150,10 +186,10 @@ module.exports = function (RED) {
 			node.updateStatus();
 		}
 
-		console.log("CUL-MAX-Controller file:"+this.address+SAVED_MAX_DEVICES);
+		console.log("CUL-MAX-Controller file:" + this.address + SAVED_MAX_DEVICES);
 
 		// Load any saved max devices
-		fs.stat(this.address+SAVED_MAX_DEVICES, (err,stats) => {
+		fs.stat(this.address + SAVED_MAX_DEVICES, (err, stats) => {
 			if (!err) {
 				if (stats.isFile()) {
 					node.status({
@@ -161,7 +197,7 @@ module.exports = function (RED) {
 						shape: "ring",
 						text: "Loading saved devices"
 					});
-					fs.readFile(node.address+SAVED_MAX_DEVICES,(err, data) => {
+					fs.readFile(node.address + SAVED_MAX_DEVICES, (err, data) => {
 						if (err) {
 							node.updateStatus();
 							return;
@@ -169,15 +205,15 @@ module.exports = function (RED) {
 						try {
 							node.loadDevices(JSON.parse(data.toString()));
 						}
-						catch(err) {
-							node.log(`Error loading data from file ${node.address+SAVED_MAX_DEVICES}. Error:${err}`)
+						catch (err) {
+							node.log(`Error loading data from file ${node.address + SAVED_MAX_DEVICES}. Error:${err}`)
 						}
 					})
 				}
 			}
 		});
 
-		node.processMaxMsg = function(device, data, send, done) {
+		node.processMaxMsg = function (device, data, send, done) {
 			var now = (new Date()).getTime() / 1000;
 
 			if (!node.devices[device.address]) {
@@ -193,11 +229,11 @@ module.exports = function (RED) {
 
 			if (node.receivingDevices[device.address]) {
 				node.log(`Adding name '${node.receivingDevices[device.address].name}' to address '${device.address}'`)
-				node.devices[device.address].name =node.receivingDevices[device.address].name;
+				node.devices[device.address].name = node.receivingDevices[device.address].name;
 			}
 
 			if (data) {
-				for(let field in data) {
+				for (let field in data) {
 					switch (field) {
 						case "address":
 						case "getKeyByValue":
@@ -228,7 +264,7 @@ module.exports = function (RED) {
 								case "SetTemperature":
 									newData = {
 										mode: data.mode,
-										modeStr: data.modeStr 
+										modeStr: data.modeStr
 									}
 									if (data.desiredTemperature) {
 										newData.desiredTemperature = data.desiredTemperature
@@ -240,7 +276,7 @@ module.exports = function (RED) {
 										weekday: data.weekday,
 										weekdayStr: data.weekdayStr
 									}
-									newData["controlpoints-"+data.weekday] = data.controlpoints;
+									newData["controlpoints-" + data.weekday] = data.controlpoints;
 									break;
 							}
 							node.processMaxMsg({
@@ -259,17 +295,17 @@ module.exports = function (RED) {
 								case "valveposition":
 									if (data[field] !== null && data[field] !== undefined) {
 										let previousValue = node.devices[device.address][field] || 0;
-										node.devices[device.address][field+"-prev"] = previousValue;
+										node.devices[device.address][field + "-prev"] = previousValue;
 										let currentValue = data[field];
 										let valueDiff = currentValue - previousValue;
-										let timeDiff = now - (node.devices[device.address][field+"-timestamp"] || now);
+										let timeDiff = now - (node.devices[device.address][field + "-timestamp"] || now);
 										let speed = valueDiff / timeDiff;
 										if (isNaN(speed)) {
 											speed = 0;
 										}
-										node.devices[device.address][field+"-diff"] = valueDiff;
-										node.devices[device.address][field+"-speed"] = speed;
-										node.devices[device.address][field+"-timestamp"] = now;
+										node.devices[device.address][field + "-diff"] = valueDiff;
+										node.devices[device.address][field + "-speed"] = speed;
+										node.devices[device.address][field + "-timestamp"] = now;
 									}
 									break;
 								case "msgType":
@@ -298,17 +334,17 @@ module.exports = function (RED) {
 				if (node.devices[device.address].hasOwnProperty("measuredTemperature") &&
 					node.devices[device.address].hasOwnProperty("desiredTemperature") &&
 					node.devices[device.address].hasOwnProperty("measuredTemperature-speed")) {
-						let tempIncrease = (node.devices[device.address]["measuredTemperature-speed"] * (5*60)); //Increase of temp in 5 minutes.
-						tempNeedHeat1 = node.devices[device.address].measuredTemperature < node.devices[device.address].desiredTemperature;
-						tempNeedHeat2 = (node.devices[device.address].measuredTemperature + tempIncrease) < node.devices[device.address].desiredTemperature;
+					let tempIncrease = (node.devices[device.address]["measuredTemperature-speed"] * (5 * 60)); //Increase of temp in 5 minutes.
+					tempNeedHeat1 = node.devices[device.address].measuredTemperature < node.devices[device.address].desiredTemperature;
+					tempNeedHeat2 = (node.devices[device.address].measuredTemperature + tempIncrease) < node.devices[device.address].desiredTemperature;
 				}
 
 				// Check if this node needs heating?
 				var valveNeedHeat = false;
 				if (node.devices[device.address].hasOwnProperty("valveposition") &&
 					node.receivingDevices[device.address]) {
-//						valveNeedHeat = (((node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve) && (node.devices[device.address]["valveposition-diff"] >= 0)) || (node.devices[device.address].valveposition >= 50));
-						valveNeedHeat = (node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve);
+					//						valveNeedHeat = (((node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve) && (node.devices[device.address]["valveposition-diff"] >= 0)) || (node.devices[device.address].valveposition >= 50));
+					valveNeedHeat = (node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve);
 				}
 
 				let globalNeedHeating = node.context().global.get("needHeating");
@@ -319,22 +355,22 @@ module.exports = function (RED) {
 					tempNeedHeat: tempNeedHeat2,
 					valveNeedHeat: valveNeedHeat
 				}
-				node.context().global.set("needHeating",globalNeedHeating);
+				node.context().global.set("needHeating", globalNeedHeating);
 
 				if (send) {
 					send([{
 						topic: "cul-max:message",
 						address: device.address,
 						payload: node.devices[device.address],
-						needHeat:{
+						needHeat: {
 							tempNeedHeat: tempNeedHeat2,
 							valveNeedHeat: valveNeedHeat
 						}
-					},null]);
+					}, null]);
 				}
 
 				if (node.receivingDevices[device.address]) {
-					node.receivingDevices[device.address].emit("data",node.devices[device.address]);
+					node.receivingDevices[device.address].emit("data", node.devices[device.address]);
 				}
 			}
 
@@ -348,7 +384,7 @@ module.exports = function (RED) {
 			node.receivingDevices[receiver.address] = receiver;
 		}
 
-		this.removeReceivingDevice = function(receiver) {
+		this.removeReceivingDevice = function (receiver) {
 			if (node.receivingDevices[receiver.address]) {
 				delete node.receivingDevices[receiver.address];
 			}
@@ -356,13 +392,25 @@ module.exports = function (RED) {
 
 		/* ===== Node-Red events ===== */
 		this.on("input", function (msg, send, done) {
-			send = send || function() { node.send.apply(node,arguments) };
+			send = send || function () { node.send.apply(node, arguments) };
 
-			//node.log("Msg for cul-max-controller:"+JSON.stringify(msg));
-			if (msg["topic"] && 
-				msg.topic === "cul:message" && 
-				msg["payload"] && 
-				msg.payload["protocol"] && 
+			node.log("Msg for cul-max-controller:" + JSON.stringify(msg));
+
+			if (msg["topic"] &&
+				msg.topic === "cul:message" &&
+				msg["payload"] &&
+				"availableTime" in msg.payload) {
+				node.log(`we received availableTime: ${msg.payload.availableTime}, waitingForCredit: ${node.waitingForCredit}`);
+				if (node.waitingForCredit) {
+					node.waitingForCredit = false;
+					node.resendPacket(msg.payload.availableTime);
+				}
+			}
+
+			if (msg["topic"] &&
+				msg.topic === "cul:message" &&
+				msg["payload"] &&
+				msg.payload["protocol"] &&
 				msg.payload.protocol == "MORITZ") {
 
 				if (msg.payload.hasOwnProperty("data") && !msg.payload.data.hasOwnProperty("culfw")) {
@@ -371,28 +419,29 @@ module.exports = function (RED) {
 						device: msg.payload.device
 					}, msg.payload.data, send, done);
 				}
+
 			}
 			else {
-				if (msg["topic"] && 
+				if (msg["topic"] &&
 					msg.topic === "list") {
-						if (send) {
-							send([{
-								topic:"cul-max-controller-list",
-								devices: node.devices
-							},null])
-						}
-					} 
+					if (send) {
+						send([{
+							topic: "cul-max-controller-list",
+							devices: node.devices
+						}, null])
+					}
+				}
 				if (done) {
 					done();
 				}
 			}
 		});
 
-		this.saveDevices = function(done) {
+		this.saveDevices = function (done) {
 			if (node.saving) return;
 
 			node.saving = true;
-			fs.writeFile(node.address+SAVED_MAX_DEVICES, JSON.stringify(node.devices,null,"\t"), (err) => {
+			fs.writeFile(node.address + SAVED_MAX_DEVICES, JSON.stringify(node.devices, null, "\t"), (err) => {
 				node.saving = false;
 				if (done) {
 					done();
@@ -410,10 +459,9 @@ module.exports = function (RED) {
 
 	//
 	// DISCOVER controller
-	RED.httpAdmin.get('/cul-max/controllers', function(req, res, next)
-	{
+	RED.httpAdmin.get('/cul-max/controllers', function (req, res, next) {
 		var controllerList = [];
-		for(var controllerId in self.controllers) {
+		for (var controllerId in self.controllers) {
 			if (controllerId != "getKeyByValue") {
 				controllerList.push({
 					id: controllerId,
@@ -428,19 +476,18 @@ module.exports = function (RED) {
 
 	//
 	// DISCOVER devices
-	RED.httpAdmin.get('/cul-max/devices', function(req, res, next)
-	{
-		console.log("/cul-max/devices req.query.controllerConfig:"+req.query.controllerId);
+	RED.httpAdmin.get('/cul-max/devices', function (req, res, next) {
+		console.log("/cul-max/devices req.query.controllerConfig:" + req.query.controllerId);
 		if (self.controllers[req.query.controllerId]) {
 			var devices = [];
-			for(var deviceId in self.controllers[req.query.controllerId].devices) {
+			for (var deviceId in self.controllers[req.query.controllerId].devices) {
 				if (deviceId !== "getKeyByValue") {
-					if (!req.query.type || 
+					if (!req.query.type ||
 						(self.controllers[req.query.controllerId].devices[deviceId].device && req.query.type == self.controllers[req.query.controllerId].devices[deviceId].device))
-					devices.push({
-						address: deviceId,
-						device: self.controllers[req.query.controllerId].devices[deviceId].device
-					})	
+						devices.push({
+							address: deviceId,
+							device: self.controllers[req.query.controllerId].devices[deviceId].device
+						})
 				}
 			}
 			res.end(JSON.stringify(devices));
