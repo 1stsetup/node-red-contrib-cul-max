@@ -39,7 +39,7 @@
     </div>
 
     <div class="form-row">
-        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="hue-light.config.light"></span></label>
+        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="light"></span></label>
         <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
             <div style="position: absolute; left: 0px; right: 40px;">
                 <input type="text" id="node-input-address" placeholder="1" style="width: 100%"/>
@@ -73,7 +73,7 @@
     </div>
 
     <div class="form-row">
-        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="hue-light.config.light"></span></label>
+        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="light"></span></label>
         <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
             <div style="position: absolute; left: 0px; right: 40px;">
                 <input type="text" id="node-input-address" placeholder="1" style="width: 100%"/>
@@ -112,7 +112,7 @@
     </div>
 
     <div class="form-row">
-        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="hue-light.config.light"></span></label>
+        <label for="node-input-address"><i class="fa fa-lightbulb-o"></i> <span data-i18n="light"></span></label>
         <div style="display: inline-block; position: relative; width: 70%; height: 20px;">
             <div style="position: absolute; left: 0px; right: 40px;">
                 <input type="text" id="node-input-address" placeholder="1" style="width: 100%"/>
@@ -160,7 +160,7 @@
             {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
                 console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
@@ -170,7 +170,7 @@
 
                     if(lightBulbs.length <= 0)
                     {
-                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                        RED.notify(scope._("none-found"), "error");
                     }
 
                     // RESET OPTIONS
@@ -179,7 +179,8 @@
                     // SET LIGHTS AS OPTIONS
                     lightBulbs.forEach(function(light)
                     {
-                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+//                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                        $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
                     });
 
                     // SELECT CURRENT VALUE
@@ -187,7 +188,7 @@
                 })
                 .fail(function()
                 {
-                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                    RED.notify(scope._("unknown-error"), "error");
                 });
             }
 
@@ -214,7 +215,7 @@
             {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
 
                 $.get('cul-max/controllers')
                 .done(function(data) {
@@ -222,7 +223,7 @@
 
                     if(controllers.length <= 0)
                     {
-                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                        RED.notify(scope._("none-found"), "error");
                     }
 
                     // RESET OPTIONS
@@ -239,10 +240,11 @@
                 })
                 .fail(function()
                 {
-                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                    RED.notify(scope._("unknown-error"), "error");
                 });
             }
             searchAndSelectController();
+            setTimeout(searchAndSelectAddress, 100);
         }
     });
     RED.nodes.registerType('cul-max-radiatorthermostat', {
@@ -274,7 +276,7 @@
             {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
                 console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
@@ -284,7 +286,7 @@
 
                     if(lightBulbs.length <= 0)
                     {
-                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                        RED.notify(scope._("none-found"), "error");
                     }
 
                     // RESET OPTIONS
@@ -293,7 +295,8 @@
                     // SET LIGHTS AS OPTIONS
                     lightBulbs.forEach(function(light)
                     {
-                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+//                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                        $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
                     });
 
                     // SELECT CURRENT VALUE
@@ -301,7 +304,7 @@
                 })
                 .fail(function()
                 {
-                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                    RED.notify(scope._("unknown-error"), "error");
                 });
             }
 
@@ -328,7 +331,7 @@
             {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
 
                 $.get('cul-max/controllers')
                 .done(function(data) {
@@ -336,7 +339,7 @@
 
                     if(controllers.length <= 0)
                     {
-                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                        RED.notify(scope._("none-found"), "error");
                     }
 
                     // RESET OPTIONS
@@ -353,10 +356,11 @@
                 })
                 .fail(function()
                 {
-                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                    RED.notify(scope._("unknown-error"), "error");
                 });
             }
             searchAndSelectController();
+            setTimeout(searchAndSelectAddress, 100);
         }
     });
     RED.nodes.registerType('cul-max-ShutterContact', {
@@ -387,7 +391,7 @@
             {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
                 console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
@@ -397,7 +401,7 @@
 
                     if(lightBulbs.length <= 0)
                     {
-                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                        RED.notify(scope._("none-found"), "error");
                     }
 
                     // RESET OPTIONS
@@ -414,7 +418,7 @@
                 })
                 .fail(function()
                 {
-                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                    RED.notify(scope._("unknown-error"), "error");
                 });
             }
 
@@ -441,7 +445,7 @@
             {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("hue-light.config.searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
 
                 $.get('cul-max/controllers')
                 .done(function(data) {
@@ -449,7 +453,7 @@
 
                     if(controllers.length <= 0)
                     {
-                        RED.notify(scope._("hue-light.config.none-found"), "error");
+                        RED.notify(scope._("none-found"), "error");
                     }
 
                     // RESET OPTIONS
@@ -466,7 +470,7 @@
                 })
                 .fail(function()
                 {
-                    RED.notify(scope._("hue-light.config.unknown-error"), "error");
+                    RED.notify(scope._("unknown-error"), "error");
                 });
             }
             searchAndSelectController();

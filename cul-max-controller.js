@@ -486,7 +486,8 @@ module.exports = function (RED) {
 						(self.controllers[req.query.controllerId].devices[deviceId].device && req.query.type == self.controllers[req.query.controllerId].devices[deviceId].device))
 						devices.push({
 							address: deviceId,
-							device: self.controllers[req.query.controllerId].devices[deviceId].device
+							device: self.controllers[req.query.controllerId].devices[deviceId].device,
+							name: self.controllers[req.query.controllerId].devices[deviceId].name
 						})
 				}
 			}
