@@ -35,6 +35,9 @@ Example:
 
 **Thermostat and Radiator Thermostat**
 ----
+
+**Let the controller collect data for at least a day so it has seen most of your devices. You can speed this up by changing the desiredTemperature or mode on your physical devices so they send this change to the cul**
+
 **Configuation**
 
 You will need to give your controller a name. This will be used in some lists and in the admin.
@@ -54,7 +57,7 @@ You can also send the following messages based in topic to the node to control i
     * When payload is boolean true the display will show the actual measured temperature
     * When payload is boolean fals the display will show the desired temperature.
 * SetTimeInformation: With this topic you can send date and time information to the node so it will adjust it's internal clock automatically.
-    * When you do not add a payload to the msg it will use the locatime of the machine where your node-red is running on.
+    * When you do not add a payload to the msg it will use the localtime of the machine where your node-red is running on.
     * Or you can specify your own time. The payload needs to be an object with the following properties
 ```json
 {
