@@ -56,7 +56,7 @@ module.exports = function (RED) {
 		this.controller = RED.nodes.getNode(config.controller);
 		this.address = config.address;
 		this.minvalve = config.hasOwnProperty("minvalve") ? config.minvalve : 20;
-		this.syncTime = config.syncTime;
+		this.useForHeating = config.useForHeating;
 
 		var node = this;
 

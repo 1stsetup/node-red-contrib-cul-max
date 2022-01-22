@@ -168,7 +168,7 @@ module.exports = function (RED) {
 			node.status({
 				fill: "green",
 				shape: "dot",
-				text: `${count} devices, sendQueue: ${node.sendQueue.length}${availableTime === undefined ? "" : ", credit:"+availableTime}`
+				text: `${count} devices, sendQueue: ${node.sendQueue.length}${availableTime === undefined ? "" : ", credit:" + availableTime}`
 			});
 
 		}
@@ -228,8 +228,10 @@ module.exports = function (RED) {
 			}
 
 			if (node.receivingDevices[device.address]) {
-				node.log(`Adding name '${node.receivingDevices[device.address].name}' to address '${device.address}'`)
-				node.devices[device.address].name = node.receivingDevices[device.address].name;
+				if (node.devices[device.address].name != node.receivingDevices[device.address].name) {
+					node.log(`Adding name '${node.receivingDevices[device.address].name}' to address '${device.address}'`)
+					node.devices[device.address].name = node.receivingDevices[device.address].name;
+				}
 			}
 
 			if (data) {
@@ -347,15 +349,19 @@ module.exports = function (RED) {
 					valveNeedHeat = (node.devices[device.address].valveposition > node.receivingDevices[device.address].minvalve);
 				}
 
-				let globalNeedHeating = node.context().global.get("needHeating");
-				if (!globalNeedHeating) {
-					globalNeedHeating = {};
+
+				node.log(`name:${node.devices[device.address].name}, useForHeating:${node.receivingDevices[device.address].useForHeating}`)
+				if ("useForHeating" in node.receivingDevices[device.address] && node.receivingDevices[device.address].useForHeating === true) {
+					let globalNeedHeating = node.context().global.get("needHeating");
+					if (!globalNeedHeating) {
+						globalNeedHeating = {};
+					}
+					globalNeedHeating[device.address] = {
+						tempNeedHeat: tempNeedHeat2,
+						valveNeedHeat: valveNeedHeat
+					}
+					node.context().global.set("needHeating", globalNeedHeating);
 				}
-				globalNeedHeating[device.address] = {
-					tempNeedHeat: tempNeedHeat2,
-					valveNeedHeat: valveNeedHeat
-				}
-				node.context().global.set("needHeating", globalNeedHeating);
 
 				if (send) {
 					send([{
