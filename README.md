@@ -17,6 +17,12 @@ Adds the following nodes:
 
 You will need to give your controller an address. It needs to be unique within your network and cannot be "000000" as that is used as a broadcast address.
 
+With the "Activate/Deactivate" button you can turn on or off the pair mode. When active the controller node will respond to pairping request for devices which have been factory reset, batteries been removed or you are manually resetting it. It will only reply to a pairping with a pairpong when the device tries to do a pairpong to address "000000" or the address you gave your controller.
+
+Resetting a !Max device can be done in the following ways:
+* Factory reset. Remove the batteries for at least 60 seconds. Press all three button ons radiator-thermostat and the moon-button+ok-button+minus-button on a wall thermostat at the same time. Keep pressed when you insert the batteries and keep pressed until you se the "rES" text.
+* Manually. When device is on press the "Boost" button until you see the number 30 appear and counting down. Then you can release the button. Once paired it will stop counting and show "AC".
+
 **Connections**
 
 Normally you need to connect the output of a "cul-out" node to the input of the "cul-max-controller". In this way it will receive eveything seen by the cul device.

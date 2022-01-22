@@ -20,6 +20,10 @@ const IGNORE_FIELDS = [
 	"getKeyByValue"
 ]
 
+const cmd2MsgId = {
+	"PairPong": "01"
+}
+
 function prefix(inStr, char, len) {
 	var result = inStr;
 	while (result.length < len) {
@@ -53,6 +57,16 @@ module.exports = function (RED) {
 
 		this.sendQueue = [];
 		this.sendTimeout;
+
+		this.inPairMode = false;
+
+		node.setInPairMode = function(value) {
+			node.inPairMode = value;
+		}
+
+		node.getInPairMode = function(value) {
+			return node.inPairMode;
+		}
 
 		if (!self.controllers) {
 			self.controllers = {};
@@ -280,6 +294,17 @@ module.exports = function (RED) {
 									}
 									newData["controlpoints-" + data.weekday] = data.controlpoints;
 									break;
+								case "PairPing":
+									// When dst address is "000000" or our address we will PairPong it.
+									node.log(`Received PairPing from ${data.src} for ${data.dst}`);
+									if (data.dst == "000000" || data.dst == node.address) {
+										node.log(` PairPong is for us.`)
+										if (node.inPairMode === true) {
+											node.log(` We are in PairMode so we are going to send a PairPong back.`)
+											node.emit("sendTo", data.src, cmd2MsgId["PairPong"], "00");
+										}
+									}
+									break;
 							}
 							node.processMaxMsg({
 								address: data.dst,
@@ -352,7 +377,7 @@ module.exports = function (RED) {
 
 				let receivingDevice = node.receivingDevices[device.address];
 				if (receivingDevice) {
-					node.log(`name:${node.devices[device.address].name}, useForHeating:${receivingDevice.useForHeating}`)
+					//node.log(`name:${node.devices[device.address].name}, useForHeating:${receivingDevice.useForHeating}`)
 					if ("useForHeating" in receivingDevice && receivingDevice.useForHeating === true) {
 						let globalNeedHeating = node.context().global.get("needHeating");
 						if (!globalNeedHeating) {
@@ -403,7 +428,7 @@ module.exports = function (RED) {
 		this.on("input", function (msg, send, done) {
 			send = send || function () { node.send.apply(node, arguments) };
 
-			node.log("Msg for cul-max-controller:" + JSON.stringify(msg));
+			//node.log("Msg for cul-max-controller:" + JSON.stringify(msg));
 
 			if (msg["topic"] &&
 				msg.topic === "cul:message" &&
@@ -514,6 +539,25 @@ module.exports = function (RED) {
 		}
 		else {
 			res.send(500).send("CUL-MAX Controller not found");
+		}
+	});
+
+	RED.httpAdmin.get('/cul-max/pairMode', function (req, res, next) {
+		if (self.controllers[req.query.controllerId]) {
+			res.end(self.controllers[req.query.controllerId].getInPairMode() ? "1" : "0");
+		}
+		else {
+			res.status(500).send("CUL-MAX Controller not found");
+		}
+	});
+
+	RED.httpAdmin.post('/cul-max/pairMode', function (req, res, next) {
+		if (self.controllers[req.body.controllerId]) {
+			self.controllers[req.body.controllerId].setInPairMode(req.body.pairMode == "true");
+			res.end("ok");
+		}
+		else {
+			res.status(500).send("CUL-MAX Controller not found");
 		}
 	});
 
