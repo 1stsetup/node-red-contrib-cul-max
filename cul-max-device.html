@@ -178,113 +178,101 @@
         category: 'cul-max',
         color: '#ffffff',
         defaults: {
-            name: {value: ""},
-            controller: {value: "", required: true},
-            address: {value:"", required: true},
-            useForHeating: {value:false, required: true}
+            name: { value: "" },
+            controller: { value: "", required: true },
+            address: { value: "", required: true },
+            useForHeating: { value: false, required: true }
         },
         inputs: 1,
         outputs: 2,
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX WallMountedThermostat");
         },
-        oneditprepare: function()
-        {
+        oneditprepare: function () {
             var scope = this;
 
-            function manualLightID()
-            {
+            function manualLightID() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
                 $('#node-input-address').val(current);
             }
 
-            function searchAndSelectAddress()
-            {
+            function searchAndSelectAddress() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
-                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "WallMountedThermostat"})
-                .done(function(data) {
-                    var lightBulbs = JSON.parse(data);
+                if (controllerConfig) {
+                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "WallMountedThermostat" })
+                        .done(function (data) {
+                            var lightBulbs = JSON.parse(data);
 
-                    if(lightBulbs.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                            if (lightBulbs.length <= 0) {
+                                RED.notify(scope._("none-found"), "error");
+                            }
 
-                    // RESET OPTIONS
-                    $('#node-input-address').empty();
+                            // RESET OPTIONS
+                            $('#node-input-address').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    lightBulbs.forEach(function(light)
-                    {
-//                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                        $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
-                    });
+                            // SET LIGHTS AS OPTIONS
+                            lightBulbs.forEach(function (light) {
+                                //                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                                $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
+                            });
 
-                    // SELECT CURRENT VALUE
-                    $('#node-input-address').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
+                            // SELECT CURRENT VALUE
+                            $('#node-input-address').val(current);
+                        })
+                        .fail(function () {
+                            RED.notify(scope._("unknown-error"), "error");
+                        });
+                }
             }
 
-            $(document).on('change', '#node-input-address', function()
-            {
+            $(document).on('change', '#node-input-address', function () {
                 var lightName = $('#node-input-address option:selected').text();
-                if(lightName.length > 0)
-                {
+                if (lightName.length > 0) {
                     $('#node-input-name').val(lightName);
                 }
             });
 
-            $('#node-config-input-scan-devices').click(function()
-            {
-                if($('#node-input-address').prop("tagName") === "INPUT")
-                {
+            $('#node-config-input-scan-devices').click(function () {
+                if ($('#node-input-address').prop("tagName") === "INPUT") {
                     searchAndSelectAddress();
                 } else {
                     manualLightID();
                 }
             });
 
-            function searchAndSelectController()
-            {
+            function searchAndSelectController() {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 $.get('cul-max/controllers')
-                .done(function(data) {
-                    var controllers = JSON.parse(data);
+                    .done(function (data) {
+                        var controllers = JSON.parse(data);
 
-                    if(controllers.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                        if (controllers.length <= 0) {
+                            RED.notify(scope._("none-found"), "error");
+                        }
 
-                    // RESET OPTIONS
-                    $('#node-input-controller').empty();
+                        // RESET OPTIONS
+                        $('#node-input-controller').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    controllers.forEach(function(controller)
-                    {
-                        $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        // SET LIGHTS AS OPTIONS
+                        controllers.forEach(function (controller) {
+                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        });
+
+                        // SELECT CURRENT VALUE
+                        $('#node-input-controller').val(current);
+                    })
+                    .fail(function () {
+                        RED.notify(scope._("unknown-error"), "error");
                     });
-
-                    // SELECT CURRENT VALUE
-                    $('#node-input-controller').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
             }
             searchAndSelectController();
             setTimeout(searchAndSelectAddress, 100);
@@ -294,114 +282,102 @@
         category: 'cul-max',
         color: '#ffffff',
         defaults: {
-            name: {value: ""},
-            controller: {value: "", required: true},
-            address: {value:"", required: true},
-            minvalve: {value: 20, required: true},
-            useForHeating: {value:false, required: true}
+            name: { value: "" },
+            controller: { value: "", required: true },
+            address: { value: "", required: true },
+            minvalve: { value: 20, required: true },
+            useForHeating: { value: false, required: true }
         },
         inputs: 1,
         outputs: 2,
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX HeatingThermostat");
         },
-        oneditprepare: function()
-        {
+        oneditprepare: function () {
             var scope = this;
 
-            function manualLightID()
-            {
+            function manualLightID() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
                 $('#node-input-address').val(current);
             }
 
-            function searchAndSelectAddress()
-            {
+            function searchAndSelectAddress() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
-                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "HeatingThermostat"})
-                .done(function(data) {
-                    var lightBulbs = JSON.parse(data);
+                if (controllerConfig) {
+                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "HeatingThermostat" })
+                        .done(function (data) {
+                            var lightBulbs = JSON.parse(data);
 
-                    if(lightBulbs.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                            if (lightBulbs.length <= 0) {
+                                RED.notify(scope._("none-found"), "error");
+                            }
 
-                    // RESET OPTIONS
-                    $('#node-input-address').empty();
+                            // RESET OPTIONS
+                            $('#node-input-address').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    lightBulbs.forEach(function(light)
-                    {
-//                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                        $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
-                    });
+                            // SET LIGHTS AS OPTIONS
+                            lightBulbs.forEach(function (light) {
+                                //                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                                $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
+                            });
 
-                    // SELECT CURRENT VALUE
-                    $('#node-input-address').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
+                            // SELECT CURRENT VALUE
+                            $('#node-input-address').val(current);
+                        })
+                        .fail(function () {
+                            RED.notify(scope._("unknown-error"), "error");
+                        });
+                }
             }
 
-            $(document).on('change', '#node-input-address', function()
-            {
+            $(document).on('change', '#node-input-address', function () {
                 var lightName = $('#node-input-address option:selected').text();
-                if(lightName.length > 0)
-                {
+                if (lightName.length > 0) {
                     $('#node-input-name').val(lightName);
                 }
             });
 
-            $('#node-config-input-scan-devices').click(function()
-            {
-                if($('#node-input-address').prop("tagName") === "INPUT")
-                {
+            $('#node-config-input-scan-devices').click(function () {
+                if ($('#node-input-address').prop("tagName") === "INPUT") {
                     searchAndSelectAddress();
                 } else {
                     manualLightID();
                 }
             });
 
-            function searchAndSelectController()
-            {
+            function searchAndSelectController() {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 $.get('cul-max/controllers')
-                .done(function(data) {
-                    var controllers = JSON.parse(data);
+                    .done(function (data) {
+                        var controllers = JSON.parse(data);
 
-                    if(controllers.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                        if (controllers.length <= 0) {
+                            RED.notify(scope._("none-found"), "error");
+                        }
 
-                    // RESET OPTIONS
-                    $('#node-input-controller').empty();
+                        // RESET OPTIONS
+                        $('#node-input-controller').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    controllers.forEach(function(controller)
-                    {
-                        $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        // SET LIGHTS AS OPTIONS
+                        controllers.forEach(function (controller) {
+                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        });
+
+                        // SELECT CURRENT VALUE
+                        $('#node-input-controller').val(current);
+                    })
+                    .fail(function () {
+                        RED.notify(scope._("unknown-error"), "error");
                     });
-
-                    // SELECT CURRENT VALUE
-                    $('#node-input-controller').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
             }
             searchAndSelectController();
             setTimeout(searchAndSelectAddress, 100);
@@ -411,111 +387,95 @@
         category: 'cul-max',
         color: '#ffffff',
         defaults: {
-            name: {value: ""},
-            controller: {value: "", required: true},
-            address: {value:"", required: true},
+            name: { value: "" },
+            controller: { value: "", required: true },
+            address: { value: "", required: true },
         },
         inputs: 1,
         outputs: 2,
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX ShutterContact");
         },
-        oneditprepare: function()
-        {
+        oneditprepare: function () {
             var scope = this;
 
-            function manualLightID()
-            {
+            function manualLightID() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
                 $('#node-input-address').val(current);
             }
 
-            function searchAndSelectAddress()
-            {
+            function searchAndSelectAddress() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
-                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "ShutterContact"})
-                .done(function(data) {
-                    var lightBulbs = JSON.parse(data);
+                if (controllerConfig) {
+                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "ShutterContact" })
+                        .done(function (data) {
+                            var lightBulbs = JSON.parse(data);
 
-                    if(lightBulbs.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                            if (lightBulbs.length <= 0) {
+                                RED.notify(scope._("none-found"), "error");
+                            }
 
-                    // RESET OPTIONS
-                    $('#node-input-address').empty();
+                            // RESET OPTIONS
+                            $('#node-input-address').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    lightBulbs.forEach(function(light)
-                    {
-                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                    });
+                            // SET LIGHTS AS OPTIONS
+                            lightBulbs.forEach(function (light) {
+                                $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                            });
 
-                    // SELECT CURRENT VALUE
-                    $('#node-input-address').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
+                            // SELECT CURRENT VALUE
+                            $('#node-input-address').val(current);
+                        })
+                        .fail(function () {
+                            RED.notify(scope._("unknown-error"), "error");
+                        });
+                }
             }
 
-            $(document).on('change', '#node-input-address', function()
-            {
+            $(document).on('change', '#node-input-address', function () {
                 var lightName = $('#node-input-address option:selected').text();
-                if(lightName.length > 0)
-                {
+                if (lightName.length > 0) {
                     $('#node-input-name').val(lightName);
                 }
             });
 
-            $('#node-config-input-scan-devices').click(function()
-            {
-                if($('#node-input-address').prop("tagName") === "INPUT")
-                {
-                    searchAndSelectAddress();
-                } else {
-                    manualLightID();
-                }
+            $('#node-config-input-scan-devices').click(function () {
+                searchAndSelectAddress();
             });
 
-            function searchAndSelectController()
-            {
+            function searchAndSelectController() {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 $.get('cul-max/controllers')
-                .done(function(data) {
-                    var controllers = JSON.parse(data);
+                    .done(function (data) {
+                        var controllers = JSON.parse(data);
 
-                    if(controllers.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                        if (controllers.length <= 0) {
+                            RED.notify(scope._("none-found"), "error");
+                        }
 
-                    // RESET OPTIONS
-                    $('#node-input-controller').empty();
+                        // RESET OPTIONS
+                        $('#node-input-controller').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    controllers.forEach(function(controller)
-                    {
-                        $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        // SET LIGHTS AS OPTIONS
+                        controllers.forEach(function (controller) {
+                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        });
+
+                        // SELECT CURRENT VALUE
+                        $('#node-input-controller').val(current);
+                    })
+                    .fail(function () {
+                        RED.notify(scope._("unknown-error"), "error");
                     });
-
-                    // SELECT CURRENT VALUE
-                    $('#node-input-controller').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
             }
             searchAndSelectController();
             setTimeout(searchAndSelectAddress, 100);
@@ -525,115 +485,102 @@
         category: 'cul-max',
         color: '#ffffff',
         defaults: {
-            name: {value: ""},
-            controller: {value: "", required: true},
-            address: {value:"", required: true},
+            name: { value: "" },
+            controller: { value: "", required: true },
+            address: { value: "", required: true },
         },
         inputs: 1,
         outputs: 2,
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX PushButton");
         },
-        oneditprepare: function()
-        {
+        oneditprepare: function () {
             var scope = this;
 
-            function manualLightID()
-            {
+            function manualLightID() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
                 $('#node-input-address').val(current);
             }
 
-            function searchAndSelectAddress()
-            {
+            function searchAndSelectAddress() {
                 var current = $('#node-input-address').val();
                 $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                console.log("controllerConfig:"+JSON.stringify(controllerConfig, null, "\t"))
-                $.get('cul-max/devices', {controllerId: controllerConfig.id, type: "PushButton"})
-                .done(function(data) {
-                    var lightBulbs = JSON.parse(data);
+                if (controllerConfig) {
+                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "PushButton" })
+                        .done(function (data) {
+                            var lightBulbs = JSON.parse(data);
 
-                    if(lightBulbs.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                            if (lightBulbs.length <= 0) {
+                                RED.notify(scope._("none-found"), "error");
+                            }
 
-                    // RESET OPTIONS
-                    $('#node-input-address').empty();
+                            // RESET OPTIONS
+                            $('#node-input-address').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    lightBulbs.forEach(function(light)
-                    {
-                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                    });
+                            // SET LIGHTS AS OPTIONS
+                            lightBulbs.forEach(function (light) {
+                                $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
+                            });
 
-                    // SELECT CURRENT VALUE
-                    $('#node-input-address').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
+                            // SELECT CURRENT VALUE
+                            $('#node-input-address').val(current);
+                        })
+                        .fail(function () {
+                            RED.notify(scope._("unknown-error"), "error");
+                        });
+                }
             }
 
-            $(document).on('change', '#node-input-address', function()
-            {
+            $(document).on('change', '#node-input-address', function () {
                 var lightName = $('#node-input-address option:selected').text();
-                if(lightName.length > 0)
-                {
+                if (lightName.length > 0) {
                     $('#node-input-name').val(lightName);
                 }
             });
 
-            $('#node-config-input-scan-devices').click(function()
-            {
-                if($('#node-input-address').prop("tagName") === "INPUT")
-                {
+            $('#node-config-input-scan-devices').click(function () {
+                if ($('#node-input-address').prop("tagName") === "INPUT") {
                     searchAndSelectAddress();
                 } else {
                     manualLightID();
                 }
             });
 
-            function searchAndSelectController()
-            {
+            function searchAndSelectController() {
                 var current = $('#node-input-controller').val();
                 $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">'+scope._("searching")+'</option>');
+                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
 
                 $.get('cul-max/controllers')
-                .done(function(data) {
-                    var controllers = JSON.parse(data);
+                    .done(function (data) {
+                        var controllers = JSON.parse(data);
 
-                    if(controllers.length <= 0)
-                    {
-                        RED.notify(scope._("none-found"), "error");
-                    }
+                        if (controllers.length <= 0) {
+                            RED.notify(scope._("none-found"), "error");
+                        }
 
-                    // RESET OPTIONS
-                    $('#node-input-controller').empty();
+                        // RESET OPTIONS
+                        $('#node-input-controller').empty();
 
-                    // SET LIGHTS AS OPTIONS
-                    controllers.forEach(function(controller)
-                    {
-                        $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        // SET LIGHTS AS OPTIONS
+                        controllers.forEach(function (controller) {
+                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                        });
+
+                        // SELECT CURRENT VALUE
+                        $('#node-input-controller').val(current);
+                    })
+                    .fail(function () {
+                        RED.notify(scope._("unknown-error"), "error");
                     });
-
-                    // SELECT CURRENT VALUE
-                    $('#node-input-controller').val(current);
-                })
-                .fail(function()
-                {
-                    RED.notify(scope._("unknown-error"), "error");
-                });
             }
             searchAndSelectController();
             setTimeout(searchAndSelectAddress, 100);
         }
     });
 </script>
-
