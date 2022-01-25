@@ -60,11 +60,11 @@ module.exports = function (RED) {
 
 		this.inPairMode = false;
 
-		node.setInPairMode = function(value) {
+		node.setInPairMode = function (value) {
 			node.inPairMode = value;
 		}
 
-		node.getInPairMode = function(value) {
+		node.getInPairMode = function (value) {
 			return node.inPairMode;
 		}
 
@@ -388,7 +388,7 @@ module.exports = function (RED) {
 							valveNeedHeat: valveNeedHeat
 						}
 						node.context().global.set("needHeating", globalNeedHeating);
-					}	
+					}
 				}
 
 				if (send) {
@@ -460,7 +460,7 @@ module.exports = function (RED) {
 					msg.topic === "list") {
 					if (send) {
 						let list = {};
-						for(let name in node.devices) {
+						for (let name in node.devices) {
 							if (name !== "hasOwnProperty" && name !== "getKeyByValue") {
 								let id = name;
 								if ("name" in node.devices[name]) {
@@ -528,11 +528,13 @@ module.exports = function (RED) {
 				if (deviceId !== "getKeyByValue") {
 					if (!req.query.type ||
 						(self.controllers[req.query.controllerId].devices[deviceId].device && req.query.type == self.controllers[req.query.controllerId].devices[deviceId].device))
-						devices.push({
-							address: deviceId,
-							device: self.controllers[req.query.controllerId].devices[deviceId].device,
-							name: self.controllers[req.query.controllerId].devices[deviceId].name
-						})
+						if (deviceId !== "000000" && deviceId !== self.controllers[req.query.controllerId].address) {
+							devices.push({
+								address: deviceId,
+								device: self.controllers[req.query.controllerId].devices[deviceId].device,
+								name: self.controllers[req.query.controllerId].devices[deviceId].name
+							})
+						}
 				}
 			}
 			res.end(JSON.stringify(devices));
@@ -555,6 +557,63 @@ module.exports = function (RED) {
 		if (self.controllers[req.body.controllerId]) {
 			self.controllers[req.body.controllerId].setInPairMode(req.body.pairMode == "true");
 			res.end("ok");
+		}
+		else {
+			res.status(500).send("CUL-MAX Controller not found");
+		}
+	});
+
+	RED.httpAdmin.post('/cul-max/setDeviceName', function (req, res, next) {
+		let controllerId = req.body.controllerId;
+		let deviceId = req.body.deviceId;
+		let name = req.body.name;
+		if (self.controllers[controllerId]) {
+			console.log(`setDeviceName: controllerId: ${controllerId}, deviceId: ${deviceId}, name: ${name}`);
+			console.log(`controller: ${self.controllers[controllerId].name}`)
+			if ("devices" in self.controllers[controllerId]) {
+				if (self.controllers[controllerId].devices[deviceId]) {
+					self.controllers[controllerId].devices[deviceId].name = name;
+					self.controllers[controllerId].saveDevices(() => {
+						res.end("ok");
+					})
+				}
+				else {
+					res.status(500).send("CUL-MAX device not found");
+				}
+			}
+			else {
+				res.status(500).send("CUL-MAX no devices");
+			}
+		}
+		else {
+			res.status(500).send("CUL-MAX Controller not found");
+		}
+	});
+
+	RED.httpAdmin.post('/cul-max/removeDevice', function (req, res, next) {
+		let controllerId = req.body.controllerId;
+		let deviceId = req.body.deviceId;
+
+		if (self.controllers[controllerId]) {
+			console.log(`removeDevice: controllerId: ${controllerId}, deviceId: ${deviceId}`);
+			if ("devices" in self.controllers[controllerId]) {
+				if (self.controllers[controllerId].devices[deviceId]) {
+					delete self.controllers[controllerId].devices[deviceId];
+					if (self.controllers[controllerId].receivingDevices[deviceId]) {
+						delete self.controllers[controllerId].receivingDevices[deviceId];
+					}
+					self.controllers[controllerId].updateStatus();
+					self.controllers[controllerId].saveDevices(() => {
+						res.end("ok");
+					})
+				}
+				else {
+					res.status(500).send("CUL-MAX device not found");
+				}
+			}
+			else {
+				res.status(500).send("CUL-MAX no devices");
+			}
 		}
 		else {
 			res.status(500).send("CUL-MAX Controller not found");

@@ -38,6 +38,11 @@
         <label for="node-input-pairMode">Activate pair mode</label>
         <button id="node-input-pairMode" placeholder="pairMode">Activate</button>
     </div>
+    <div class="form-row">
+        <table id="devices_seen">
+        </table>
+    </div>
+
 </script>
 
 <script type="text/x-red" data-help-name="cul-max-controller">
@@ -117,6 +122,63 @@
                 setPairMode(!pairMode, controllerId, updateBackend);
             }
 
+            function getDevicesSeen(nodeId) {
+                $.get('cul-max/devices', { controllerId: nodeId })
+                    .done(function (data) {
+                        var devicesSeen = JSON.parse(data);
+
+                        // RESET OPTIONS
+                        $('#devices_seen').empty();
+                        let row = `<tr><th>Address</th><th>Name</th><th>Type</th></tr>`;
+                        $('#devices_seen').append(row);
+
+                        // SET LIGHTS AS OPTIONS
+                        devicesSeen.forEach(function (device) {
+                            // class="red-ui-item-save red-ui-button" fa fa-check
+                            let row = `<tr id="${device.address}_row">
+                                <td id="${device.address}_address">${device.address}</td>
+                                <td><input type="text" id="${device.address}_name" value="${'name' in device ? device.name : ''}" size="40"></td>
+                                <td>${"device" in device ? device.device : ""}</td>
+                                <td><a class="red-ui-item-save red-ui-button" href="#" id="${device.address}_set">
+                                    <i class="fa fa-check"></i>Set</a>
+                                </td>
+                                <td><a class="red-ui-item-remove red-ui-button" href="#" id="${device.address}_remove">
+                                    <i class="fa fa-remove"></i></a>
+                                </td>
+                                </tr>`;
+                            $('#devices_seen').append(row);
+                            $(document).on('click', `#${device.address}_set`, function () {
+                                let label = `#${device.address}_name`;
+                                console.log(`Set name: ${device.address}, Name: ${$(label).val()} controllerId: ${nodeId}`);
+                                $.post('/cul-max/setDeviceName', { controllerId: nodeId, deviceId: device.address, name: $(label).val() })
+                                    .done(function (data) {
+                                        console.log(`Changed name: ${device.address}, Name: ${$(label).val()} controllerId: ${nodeId}`);
+                                    })
+                                    .fail((error) => {
+                                        alert(`Error setting name for ${device.address}. Error: ${error.toString()}`);
+                                    })
+                            });
+                            $(document).on('click', `#${device.address}_remove`, function () {
+                                let confirmAction = confirm(`Are you sure you want to remove: ${device.address}`);
+                                if (confirmAction) {
+                                    console.log(`Removing: ${device.address}, controllerId: ${nodeId}`);
+                                    $.post('/cul-max/removeDevice', { controllerId: nodeId, deviceId: device.address })
+                                    .done(function (data) {
+                                        console.log(`Removed: ${device.address}, controllerId: ${nodeId}`);
+//                                        $(`table#test tr#3`).remove();
+                                        $(`#${device.address}_row`).remove();
+                                    })
+                                    .fail((error) => {
+                                        alert(`Error removing ${device.address}. Error: ${error.toString()}`);
+                                    })
+                                }
+                            });
+                        });
+                    })
+                    .fail(function () {
+                        RED.notify(scope._("unknown-error"), "error");
+                    });
+            }
 
             var $pairModeBtn = $('#node-input-pairMode');
 
@@ -127,6 +189,9 @@
 
             setTimeout(() => {
                 getPairMode(nodeId);
+                setTimeout(() => {
+                    getDevicesSeen(nodeId);
+                })
             }, 100);
 
         }
