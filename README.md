@@ -77,9 +77,20 @@ You can also send the following messages based in topic to the node to control i
 ```
 * SetTemperature: With this you can set the desired temperature and/or the mode the thermostat is in
     * When you wish to change the desired temperature add the property "desiredTemperature" to the payload. As value specify the temperatur in °C. Resolutions of the devices is 0.5 °C.
-    * When you wish to change the mode the device is running in add the property "mode" to the payload. The mode can have following two values:
+    * When you wish to change the mode the device is running in add the property "mode" to the payload. The mode can have following four values:
         * 0: for Auto mode. The device will follow the set control points schedule.
         * 1: for Manual mode. The device will stay on the desired temperature.
+        * 2: for Temporary mode. The device will stay on the desired temperature until the specified date/time. You will also need to add the property "until". This until property is an object with the following properties (minute property can only be 0 or 30):
+        ```json
+        {
+            "year": 2022,
+            "month": 1,
+            "day": 23,
+            "hour": 10,
+            "minute": 30
+        }
+        ```
+        * 3: for Boost mode.
 * SetControlPoints: With this you can specify the control points schedule for one weekday. If you would like to set a schedule for a whole week you need to send one message per weekday. The payload needs to have the following properties:
     * weekday: The name of the weekday in english. Like "saturday" of the first three letters of the weekday like "sat".
     * controlPoints: An array of controllpoints objects. Each with the following properties:
