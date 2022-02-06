@@ -52,11 +52,6 @@ module.exports = function (RED) {
 		var node = this;
 		node.log(`create controller. name:${config.name}`)
 
-		node.send([null, {
-			topic: "raw",
-			payload: "Za" + node.address
-		}]);
-
 		this.receivingDevices = {};
 
 		this.sendQueue = [];
@@ -547,6 +542,17 @@ module.exports = function (RED) {
 						device: msg.payload.device
 					}, msg.payload.data, send, done);
 				}
+
+				if (msg.payload.hasOwnProperty("data") && msg.payload.data.hasOwnProperty("culfw")) {
+					setTimeout(() => {
+						node.send([null, {
+							topic: "raw",
+							payload: "Za" + node.address
+						}]);
+					}, 100);
+
+				}
+
 			}
 			else {
 				if (msg["topic"] &&
