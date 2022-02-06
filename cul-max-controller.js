@@ -57,6 +57,8 @@ module.exports = function (RED) {
 		this.ackQueue = {};
 		this.sendTimeout;
 
+		this.weSendInit = false;
+
 		this.inPairMode = false;
 
 		node.setInPairMode = function (value) {
@@ -100,6 +102,13 @@ module.exports = function (RED) {
 			}, sleepTime);
 		}
 
+		node.on("connected", () => {
+			node.log(`cul is connected sending our address '${node.address}' for auto ack.`)
+			node.send([null, {
+				topic: "raw",
+				payload: "Za" + node.address
+			}]);
+		})
 		node.resendPacket = function (availableTime) {
 			node.updateStatus(availableTime);
 			if (node.waitingForCredit) return;
@@ -160,7 +169,7 @@ module.exports = function (RED) {
 						addToSendQueue = false;
 					}
 				}
-				
+
 			}
 			if (addToSendQueue) {
 				node.sendQueue.push(msg);
@@ -539,7 +548,6 @@ module.exports = function (RED) {
 						device: msg.payload.device
 					}, msg.payload.data, send, done);
 				}
-
 			}
 			else {
 				if (msg["topic"] &&
