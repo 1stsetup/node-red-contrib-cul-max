@@ -1,0 +1,425 @@
+[
+    {
+        "id": "4771f0ca.32f2f",
+        "type": "tab",
+        "label": "Example Cul Max Thermostat inputs",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "76bc57c3.ba05f8",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Display measured/actual temperature (SetDisplayActualTemperature -> true)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetDisplayActualTemperature",
+        "payload": "true",
+        "payloadType": "bool",
+        "x": 370,
+        "y": 80,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "8fe4c31f.2a14c8",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Display desired temperature (SetDisplayActualTemperature -> false)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetDisplayActualTemperature",
+        "payload": "false",
+        "payloadType": "bool",
+        "x": 400,
+        "y": 140,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "39721602.cbbac2",
+        "type": "debug",
+        "z": "4771f0ca.32f2f",
+        "name": "copy of input",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1110,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "9a3c4aa2.c970d",
+        "type": "debug",
+        "z": "4771f0ca.32f2f",
+        "name": "(not used for now)",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1130,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "5dc10953.c9884",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Set time and date to now (localtime) (SetTimeInformation)",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetTimeInformation",
+        "payloadType": "str",
+        "x": 430,
+        "y": 200,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "f0eca86f.61eff",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Set desiredtemp to 14 and mode Auto (0) (SetTemperature)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetTemperature",
+        "payload": "{\"mode\":0,\"desiredTemperature\":14}",
+        "payloadType": "json",
+        "x": 430,
+        "y": 300,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "ff57ea4f.a8a778",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "SetControlPoints for one weekday",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetControlPoints",
+        "payload": "{\"weekday\":\"saturday\",\"controlPoints\":[{\"temperature\":15,\"hour\":0,\"minute\":0},{\"temperature\":21,\"hour\":7,\"minute\":0},{\"temperature\":15,\"hour\":9,\"minute\":30},{\"temperature\":21,\"hour\":21,\"minute\":10},{\"temperature\":15,\"hour\":22,\"minute\":0}]}",
+        "payloadType": "json",
+        "x": 500,
+        "y": 500,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "4e672ff3.ef9bf8",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Set desiredtemp to 20 and mode Manual (1) (SetTemperature)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetTemperature",
+        "payload": "{\"mode\":1,\"desiredTemperature\":20}",
+        "payloadType": "json",
+        "x": 420,
+        "y": 340,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "ba361464.888dc",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Set time and date to 2022-01-20 10:31:33 (SetTimeInformation)",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetTimeInformation",
+        "payload": "{\"year\":2022,\"month\":1,\"day\":20,\"hour\":10,\"minute\":31,\"seconds\":33}",
+        "payloadType": "json",
+        "x": 410,
+        "y": 240,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "7b4c784b.42c37",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Set mode Auto (0) and leave desired temperature as is (SetTemperature)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetTemperature",
+        "payload": "{\"mode\":0}",
+        "payloadType": "json",
+        "x": 380,
+        "y": 400,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "426a84e1.4967ec",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "Set mode Manual (1) and leave desired temperature as is (SetTemperature)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetTemperature",
+        "payload": "{\"mode\":1}",
+        "payloadType": "json",
+        "x": 380,
+        "y": 440,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "4970b4fa.6d57ec",
+        "type": "cul-max-thermostat",
+        "z": "4771f0ca.32f2f",
+        "name": "Living room wall thermostat",
+        "controller": "a81c027b.4a562",
+        "address": "1770f2",
+        "useForHeating": false,
+        "x": 840,
+        "y": 260,
+        "wires": [
+            [
+                "39721602.cbbac2"
+            ],
+            [
+                "9a3c4aa2.c970d"
+            ]
+        ]
+    },
+    {
+        "id": "a81e4ee9.0991e",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "AddLinkPartner",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "AddLinkPartner",
+        "payload": "14d4f3",
+        "payloadType": "str",
+        "x": 560,
+        "y": 560,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "9f7f5228.b8b31",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "ConfigTemperatures",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "ConfigTemperatures",
+        "payload": "{\"comfort\":20,\"eco\":11.5,\"max\":30,\"min\":8,\"offset\":0,\"windowOpenTemp\":15,\"windowOpenTime\":10}",
+        "payloadType": "json",
+        "x": 550,
+        "y": 600,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "460a21a9.344f48",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "SetComfortTemperature",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetComfortTemperature",
+        "x": 540,
+        "y": 640,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    },
+    {
+        "id": "6390c029.5acb6",
+        "type": "inject",
+        "z": "4771f0ca.32f2f",
+        "name": "SetEcoTemperature",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "SetEcoTemperature",
+        "x": 550,
+        "y": 680,
+        "wires": [
+            [
+                "4970b4fa.6d57ec"
+            ]
+        ]
+    }
+]

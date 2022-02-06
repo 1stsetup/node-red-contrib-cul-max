@@ -11,7 +11,10 @@ const cmd2MsgId = {
 	"SetDisplayActualTemperature": "82",
 	"TimeInformation": "03",
 	"AddLinkPartner": "20",
-	"RemoveLinkPartner": "21"
+	"RemoveLinkPartner": "21",
+	"ConfigTemperatures": "11",
+	"SetComfortTemperature": "43",
+	"SetEcoTemperature": "44"
 }
 
 const WEEKDAYS = {
@@ -116,13 +119,6 @@ module.exports = function (RED) {
 		// }
 
 		/* ===== Node-Red events ===== */
-		this.doSyncTime = function (done) {
-
-			if (done) {
-				done();
-			}
-		}
-
 		this.setTimeInformation = function (payload, send, done) {
 			// my ($sec,$min,$hour,$day,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 			// $mon += 1; #make month 1-based
@@ -150,6 +146,54 @@ module.exports = function (RED) {
 					culMaxPayload += prefix(bits[idx].toString(16), '0', 2)
 				}
 				node.controller.emit("sendTo", node.address, cmd2MsgId["TimeInformation"], culMaxPayload);
+			}
+			if (done) {
+				done();
+			}
+		}
+
+
+		this.configTemperatures = function (payload, send, done) {
+			// my $comfort        = int($h{comfortTemperature}*2);
+			// my $eco            = int($h{ecoTemperature}*2);
+			// my $max            = int($h{maximumTemperature}*2);
+			// my $min            = int($h{minimumTemperature}*2);
+			// my $offset         = int(($h{measurementOffset} + 3.5)*2);
+			// my $windowOpenTemp = int($h{windowOpenTemperature}*2);
+			// my $windowOpenTime = int($h{windowOpenDuration}/5);
+
+			// my $groupid        = MAX_ReadingsVal($hash,"groupid");
+			// my $payload        = sprintf("%02x%02x%02x%02x%02x%02x%02x",$comfort,$eco,$max,$min,$offset,$windowOpenTemp,$windowOpenTime);
+
+			let bits = [];
+			if (payload !== undefined) {
+				let hasAllFields = true;
+				let requiredFields = ["comfort", "eco", "max", "min", "offset", "windowOpenTemp", "windowOpenTime"];
+				for (let idx = 0; idx < requiredFields.length; idx++) {
+					if (requiredFields[idx] != "hasOwnProperty") {
+						if (!(requiredFields[idx] in payload)) {
+							node.log(`configTemperatures missing required field '${requiredFields[idx]}'`)
+							hasAllFields = false;
+							break;
+						}
+					}
+				}
+				if (hasAllFields) {
+					bits.push(Math.floor(payload.comfort * 2),
+						Math.floor(payload.eco * 2),
+						Math.floor(payload.max * 2),
+						Math.floor(payload.min * 2),
+						Math.floor((payload.offset + 3.5) * 2),
+						Math.floor(payload.windowOpenTemp * 2),
+						Math.floor((payload.windowOpenTime <= 60 ? payload.windowOpenTime : 60) / 5));
+				}
+			}
+			if (bits.length > 0) {
+				let culMaxPayload = "";
+				for (let idx = 0; idx < bits.length; idx++) {
+					culMaxPayload += prefix(bits[idx].toString(16), '0', 2)
+				}
+				node.controller.emit("sendTo", node.address, cmd2MsgId["ConfigTemperatures"], culMaxPayload);
 			}
 			if (done) {
 				done();
@@ -211,6 +255,22 @@ module.exports = function (RED) {
 					node.log(`Unknown address: ${payload}`)
 				}
 			}
+			if (done) {
+				done();
+			}
+		}
+
+		this.setComfortTemperature = function (payload, send, done) {
+			// Construct payload for controller
+			node.controller.emit("sendTo", node.address, cmd2MsgId["SetComfortTemperature"]);
+			if (done) {
+				done();
+			}
+		}
+
+		this.setEcoTemperature = function (payload, send, done) {
+			// Construct payload for controller
+			node.controller.emit("sendTo", node.address, cmd2MsgId["SetEcoTemperature"]);
 			if (done) {
 				done();
 			}
@@ -403,6 +463,42 @@ module.exports = function (RED) {
 						device = node.controller.getDevice(node.address);
 						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
 							node.addLinkPartner(msg.payload, send, done);
+						}
+						else {
+							if (done) {
+								done();
+							}
+						}
+						break;
+					case "ConfigTemperatures":
+						device = node.controller.getDevice(node.address);
+						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
+							console.log(`bliep1`)
+							node.configTemperatures(msg.payload, send, done);
+						}
+						else {
+							if (done) {
+								done();
+							}
+						}
+						break;
+					case "SetComfortTemperature":
+						device = node.controller.getDevice(node.address);
+						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
+							console.log(`bliep1`)
+							node.setComfortTemperature(msg.payload, send, done);
+						}
+						else {
+							if (done) {
+								done();
+							}
+						}
+						break;
+					case "SetEcoTemperature":
+						device = node.controller.getDevice(node.address);
+						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
+							console.log(`bliep1`)
+							node.setEcoTemperature(msg.payload, send, done);
 						}
 						else {
 							if (done) {

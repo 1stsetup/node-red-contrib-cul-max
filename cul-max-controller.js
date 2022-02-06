@@ -147,15 +147,22 @@ module.exports = function (RED) {
 				tryCount: 0
 			};
 
+			console.log(`addToSendQueue src:${src}, dst:${dst}, type: ${node.devices[dst]?.device}`)
+			let addToSendQueue = true;
 			if (dst in node.devices) {
-				if (node.devices[dst].device == "ShutterContact") {
-					if (!(dst in node.ackQueue)) {
-						node.ackQueue[dst] = [];
+				if (dst != "getKeyByValue") {
+					if (node.devices[dst].device == "ShutterContact") {
+						if (!(dst in node.ackQueue)) {
+							node.ackQueue[dst] = [];
+						}
+						console.log(`adding to ackQueue for '${dst}'.`)
+						node.ackQueue[dst].push(msg);
+						addToSendQueue = false;
 					}
-					node.ackQueue[dst].push(msg);
 				}
+				
 			}
-			else {
+			if (addToSendQueue) {
 				node.sendQueue.push(msg);
 				if (!node.sendTimeout) {
 					node.resendPacket();
@@ -173,11 +180,18 @@ module.exports = function (RED) {
 				src: node.address,
 				dst: address,
 				groupId: "00",
-				payload: payload,
 				toString: function () {
-					return (this.msgCnt + this.msgFlag + this.msgType + this.src + this.dst + this.groupId + this.payload).toUpperCase();
+					let ret = this.msgCnt + this.msgFlag + this.msgType + this.src + this.dst + this.groupId;
+					if (this.payload !== undefined) {
+						ret += this.payload
+					}
+					return ret.toUpperCase();
 				}
 			};
+
+			if (payload !== undefined) {
+				packet.payload = payload;
+			}
 
 			let packetStr = packet.toString();
 			let len = prefix((packetStr.length / 2).toString(16), '0', 2).toUpperCase();
@@ -192,8 +206,13 @@ module.exports = function (RED) {
 			}
 
 			let ackLength = 0;
-			for(let addr in node.ackQueue) {
-				ackLength += node.ackQueue[addr].length;
+			for (let addr in node.ackQueue) {
+				if (addr != "getKeyByValue") {
+					if (node.ackQueue[addr].length > 0) {
+						console.log(`dev ${addr} has ackQueue.length: ${node.ackQueue[addr].length}`);
+					}
+					ackLength += node.ackQueue[addr].length;
+				}
 			}
 
 			node.status({
@@ -359,10 +378,10 @@ module.exports = function (RED) {
 									}
 									break;
 								case "msgType":
-									if ((data[field] == "Ack") && (node.sendQueue.length > 0)) {
+									if ((data[field] == "Ack") && (data.ackResponse == 1) && (node.sendQueue.length > 0)) {
 										// See if this is an ack to one of our message we send out.
 										if (data.src == node.sendQueue[0].dst && data.dst == node.sendQueue[0].src) {
-											node.log(`Received ack to msg: ${node.sendQueue[0].packetStr}`);
+											node.log(`Received ack to msg: ${node.sendQueue[0].packetStr}, ackResponse: ${data.ackResponse}`);
 											clearTimeout(node.sendTimeout);
 											node.sendTimeout = undefined;
 											node.sendQueue.shift();
@@ -380,10 +399,33 @@ module.exports = function (RED) {
 					}
 				}
 
-				if (data.msgType != "Ack" && data.dst == node.address) {
-					// Message for us. So send Ack
-					//node.emit("sendTo", )
+				function sendTimeInformation(dst) {
+					let bits = [];
+					let now = new Date();
+					let year = now.getFullYear() - 2000;
+					let month = now.getMonth() + 1;
+					bits.push(year, now.getDate(), now.getHours(), now.getMinutes() | ((month & 0x0C) << 4), now.getSeconds() | ((month & 0x03) << 6));
+					if (bits.length > 0) {
+						let culMaxPayload = "";
+						for (let idx = 0; idx < bits.length; idx++) {
+							culMaxPayload += prefix(bits[idx].toString(16), '0', 2)
+						}
+						node.emit("sendTo", dst, cmd2MsgId["TimeInformation"], culMaxPayload);
+					}
+
 				}
+
+				if (data.msgType == "TimeInformation") {
+					// Let's see if the difference is to big
+					let deviceDate = new Date(data.year, data.month - 1, data.day, data.hour, data.min, data.sec);
+					let now = new Date();
+					let diff = Math.abs(now.getTime() - deviceDate.getTime);
+					if (diff > 10000) {
+						node.log(`TimeInformation for device '${data.src}' differs ${Math.floor(diff / 1000)} seconds. Will send correct time.`);
+						sendTimeInformation(data.src);
+					}
+				}
+
 				if (data.src in node.ackQueue && node.ackQueue[data.src].length > 0) {
 					// We have waiting outgoing messages for this device. Send it.
 					let msg = node.ackQueue[data.src].shift();
