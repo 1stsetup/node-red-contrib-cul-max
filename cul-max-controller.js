@@ -51,6 +51,12 @@ module.exports = function (RED) {
 		this.address = config.address;
 		var node = this;
 		node.log(`create controller. name:${config.name}`)
+
+		node.send([null, {
+			topic: "raw",
+			payload: "Za" + node.address
+		}]);
+
 		this.receivingDevices = {};
 
 		this.sendQueue = [];
@@ -102,13 +108,6 @@ module.exports = function (RED) {
 			}, sleepTime);
 		}
 
-		node.on("connected", () => {
-			node.log(`cul is connected sending our address '${node.address}' for auto ack.`)
-			node.send([null, {
-				topic: "raw",
-				payload: "Za" + node.address
-			}]);
-		})
 		node.resendPacket = function (availableTime) {
 			node.updateStatus(availableTime);
 			if (node.waitingForCredit) return;
