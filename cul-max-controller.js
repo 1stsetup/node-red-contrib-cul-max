@@ -124,7 +124,7 @@ module.exports = function (RED) {
 						// unable to send. Drop this request.
 						node.log(`Destination '${node.sendQueue[0].dst}' is not responding to packets. Dropping packets.`);
 						let message = node.sendQueue.shift();
-						node.ackQueue.push(message);
+						//node.ackQueue.push(message);
 						node.sendTimeout = undefined;
 						node.resendPacket();
 					}
@@ -382,7 +382,7 @@ module.exports = function (RED) {
 
 				if (data.msgType != "Ack" && data.dst == node.address) {
 					// Message for us. So send Ack
-					node.emit("sendTo", )
+					//node.emit("sendTo", )
 				}
 				if (data.src in node.ackQueue && node.ackQueue[data.src].length > 0) {
 					// We have waiting outgoing messages for this device. Send it.
