@@ -215,7 +215,7 @@
 
         var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
         if (controllerConfig) {
-            console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+            //console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
             $.get('cul-max/devices', { controllerId: controllerConfig.id, type: nodeType })
                 .done(function (data) {
                     var devices = JSON.parse(data);
@@ -276,7 +276,7 @@
     function getDevicesSeen() {
         var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
         if (controllerConfig) {
-            console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+            //console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
             $.get('cul-max/devices', { controllerId: controllerConfig.id })
                 .done(function (data) {
                     var devices = JSON.parse(data);
