@@ -2,11 +2,8 @@
  * Created by Michel Verbraak (info@1st-setup.nl).
  */
 
-var util = require('util');
-var Cul = require('cul');
 const fs = require('fs');
 const path = require('path');
-const { deflateRawSync } = require('zlib');
 
 const SAVED_MAX_DEVICES = "_saved_max_devices.json";
 const ACK_TIMEOUT = 3000; // 3 seconds
@@ -53,9 +50,11 @@ module.exports = function (RED) {
 		this.name = config.name;
 		this.address = config.address;
 		var node = this;
+		node.log(`create controller. name:${config.name}`)
 		this.receivingDevices = {};
 
 		this.sendQueue = [];
+		this.ackQueue = {};
 		this.sendTimeout;
 
 		this.inPairMode = false;
@@ -124,7 +123,8 @@ module.exports = function (RED) {
 					else {
 						// unable to send. Drop this request.
 						node.log(`Destination '${node.sendQueue[0].dst}' is not responding to packets. Dropping packets.`);
-						node.sendQueue.shift();
+						let message = node.sendQueue.shift();
+						node.ackQueue.push(message);
 						node.sendTimeout = undefined;
 						node.resendPacket();
 					}
@@ -139,15 +139,27 @@ module.exports = function (RED) {
 			}
 		}
 		node.addToSendQueue = function (src, dst, packetStr, len) {
-			node.sendQueue.push({
+			let msg = {
 				src: src,
 				dst: dst,
 				packetStr: packetStr,
 				len: len,
 				tryCount: 0
-			});
-			if (!node.sendTimeout) {
-				node.resendPacket();
+			};
+
+			if (dst in node.devices) {
+				if (node.devices[dst].device == "ShutterContact") {
+					if (!(dst in node.ackQueue)) {
+						node.ackQueue[dst] = [];
+					}
+					node.ackQueue[dst].push(msg);
+				}
+			}
+			else {
+				node.sendQueue.push(msg);
+				if (!node.sendTimeout) {
+					node.resendPacket();
+				}
 			}
 			node.updateStatus();
 		}
@@ -179,22 +191,33 @@ module.exports = function (RED) {
 				count++;
 			}
 
+			let ackLength = 0;
+			for(let addr in node.ackQueue) {
+				ackLength += node.ackQueue[addr].length;
+			}
+
 			node.status({
 				fill: "green",
 				shape: "dot",
-				text: `${count} devices, sendQueue: ${node.sendQueue.length}${availableTime === undefined ? "" : ", credit:" + availableTime}`
+				text: `${count} devices, sendQueue: ${node.sendQueue.length}, ackQueue: ${ackLength}, ${availableTime === undefined ? "" : ", credit:" + availableTime}`
 			});
 
 		}
 
 		node.loadDevices = function (data) {
+			node.log(`loadDevices controller`)
 			for (var address in data) {
-				if (node.devices[address]) {
-					// update
-				}
-				else {
-					// add
-					node.devices[address] = data[address];
+				if (address != "getKeyByValue") {
+					if (node.devices[address]) {
+						// update
+					}
+					else {
+						// add
+						node.devices[address] = data[address];
+					}
+					if (node.receivingDevices[address]) {
+						node.devices[address].name = node.receivingDevices[address].name;
+					}
 				}
 			}
 			node.updateStatus();
@@ -351,8 +374,24 @@ module.exports = function (RED) {
 							if (data[field] !== null && data[field] !== undefined) {
 								node.devices[device.address][field] = data[field];
 							}
+
+
 							break;
 					}
+				}
+
+				if (data.msgType != "Ack" && data.dst == node.address) {
+					// Message for us. So send Ack
+					node.emit("sendTo", )
+				}
+				if (data.src in node.ackQueue && node.ackQueue[data.src].length > 0) {
+					// We have waiting outgoing messages for this device. Send it.
+					let msg = node.ackQueue[data.src].shift();
+					node.sendQueue.push(msg);
+					if (!node.sendTimeout) {
+						node.resendPacket();
+					}
+					node.updateStatus();
 				}
 
 				// Check if this node needs heating?
@@ -415,6 +454,7 @@ module.exports = function (RED) {
 		}
 
 		this.addReceivingDevice = function (receiver) {
+			node.log(`addReceivingDevice: ${receiver.address}, name:${receiver.name}`)
 			node.receivingDevices[receiver.address] = receiver;
 		}
 
@@ -422,6 +462,10 @@ module.exports = function (RED) {
 			if (node.receivingDevices[receiver.address]) {
 				delete node.receivingDevices[receiver.address];
 			}
+			if (node.devices[receiver.address]) {
+				delete node.devices[receiver.address];
+			}
+			node.saveDevices();
 		}
 
 		/* ===== Node-Red events ===== */
@@ -532,7 +576,8 @@ module.exports = function (RED) {
 							devices.push({
 								address: deviceId,
 								device: self.controllers[req.query.controllerId].devices[deviceId].device,
-								name: self.controllers[req.query.controllerId].devices[deviceId].name
+								name: self.controllers[req.query.controllerId].devices[deviceId].name,
+								node: self.controllers[req.query.controllerId].devices[deviceId]
 							})
 						}
 				}
@@ -557,33 +602,6 @@ module.exports = function (RED) {
 		if (self.controllers[req.body.controllerId]) {
 			self.controllers[req.body.controllerId].setInPairMode(req.body.pairMode == "true");
 			res.end("ok");
-		}
-		else {
-			res.status(500).send("CUL-MAX Controller not found");
-		}
-	});
-
-	RED.httpAdmin.post('/cul-max/setDeviceName', function (req, res, next) {
-		let controllerId = req.body.controllerId;
-		let deviceId = req.body.deviceId;
-		let name = req.body.name;
-		if (self.controllers[controllerId]) {
-			console.log(`setDeviceName: controllerId: ${controllerId}, deviceId: ${deviceId}, name: ${name}`);
-			console.log(`controller: ${self.controllers[controllerId].name}`)
-			if ("devices" in self.controllers[controllerId]) {
-				if (self.controllers[controllerId].devices[deviceId]) {
-					self.controllers[controllerId].devices[deviceId].name = name;
-					self.controllers[controllerId].saveDevices(() => {
-						res.end("ok");
-					})
-				}
-				else {
-					res.status(500).send("CUL-MAX device not found");
-				}
-			}
-			else {
-				res.status(500).send("CUL-MAX no devices");
-			}
 		}
 		else {
 			res.status(500).send("CUL-MAX Controller not found");

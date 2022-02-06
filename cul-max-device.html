@@ -53,6 +53,18 @@
         <label for="node-input-useForHeating">Use for heating</label>
         <input type="checkbox" id="node-input-useForHeating" placeholder="useForHeating" align="left">
     </div>
+    <div>
+        <label for="node-input-useForHeating">Associated devices</label>
+        <table id="associated_devices">
+        </table>
+    </div>
+
+    <div>
+        <label for="node-input-useForHeating">Devices to be associated</label>
+        <table id="devices_to_be_associated">
+        </table>
+    </div>
+
 </script>
 
 <script type="text/x-red" data-help-name="cul-max-thermostat">
@@ -96,6 +108,17 @@
         <label for="node-input-useForHeating">Use for heating</label>
         <input type="checkbox" id="node-input-useForHeating" placeholder="useForHeating" align="left">
     </div>
+    <div>
+        <label for="node-input-useForHeating">Associated devices</label>
+        <table id="associated_devices">
+        </table>
+    </div>
+
+    <div>
+        <label for="node-input-useForHeating">Devices to be associated</label>
+        <table id="devices_to_be_associated">
+        </table>
+    </div>
 </script>
 
 <script type="text/x-red" data-help-name="cul-max-radiatorthermostat">
@@ -129,6 +152,17 @@
                 <i class="fa fa-search"></i>
             </a>
         </div>
+    </div>
+    <div>
+        <label for="node-input-useForHeating">Associated devices</label>
+        <table id="associated_devices">
+        </table>
+    </div>
+
+    <div>
+        <label for="node-input-useForHeating">Devices to be associated</label>
+        <table id="devices_to_be_associated">
+        </table>
     </div>
 </script>
 
@@ -174,6 +208,197 @@
 </script>
 
 <script type="text/javascript">
+    function searchAndSelectAddress(nodeType) {
+        var current = $('#node-input-address').val();
+        $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
+        $('#node-input-address').append('<option selected="selected" value="null">searching</option>');
+
+        var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
+        if (controllerConfig) {
+            console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+            $.get('cul-max/devices', { controllerId: controllerConfig.id, type: nodeType })
+                .done(function (data) {
+                    var devices = JSON.parse(data);
+
+                    if (devices.length <= 0) {
+                        RED.notify("none-found", "error");
+                    }
+
+                    // RESET OPTIONS
+                    $('#node-input-address').empty();
+
+                    // SET LIGHTS AS OPTIONS
+                    devices.forEach(function (device) {
+                        console.log(`searchAndSelectAddress device.address:${device.address}`)
+                        $('#node-input-address').append(`<option value="${device.address}">${device.address} - ${device.name}</option>`);
+
+
+                    });
+
+                    // SELECT CURRENT VALUE
+                    $('#node-input-address').val(current);
+                })
+                .fail(function () {
+                    RED.notify("unknown-error", "error");
+                });
+        }
+    }
+
+    function searchAndSelectController() {
+        var current = $('#node-input-controller').val();
+        $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
+        $('#node-input-controller').append('<option selected="selected" value="null">searching</option>');
+
+        $.get('cul-max/controllers')
+            .done(function (data) {
+                var controllers = JSON.parse(data);
+
+                if (controllers.length <= 0) {
+                    RED.notify("none-found", "error");
+                }
+
+                // RESET OPTIONS
+                $('#node-input-controller').empty();
+
+                // SET LIGHTS AS OPTIONS
+                controllers.forEach(function (controller) {
+                    $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
+                });
+
+                // SELECT CURRENT VALUE
+                $('#node-input-controller').val(current);
+            })
+            .fail(function () {
+                RED.notify("unknown-error", "error");
+            });
+    }
+
+    function getDevicesSeen() {
+        var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
+        if (controllerConfig) {
+            console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
+            $.get('cul-max/devices', { controllerId: controllerConfig.id })
+                .done(function (data) {
+                    var devices = JSON.parse(data);
+                    if (devices.length <= 0) {
+                        RED.notify("none-found", "error");
+                        return;
+                    }
+
+                    var thisDeviceAddress = $('#node-input-address option:selected').val();
+                    console.log(`thisDevice: ${thisDeviceAddress}`);
+
+                    let thisDevice;
+                    for (let idx in devices) {
+                        if (devices[idx].address == thisDeviceAddress) {
+                            thisDevice = devices[idx];
+                            break;
+                        }
+                    }
+                    if (!thisDevice) {
+                        RED.notify("bad-device", "error");
+                        return;
+                    }
+
+                    $('#associated_devices').empty();
+                    let row = `<tr><th>Address</th><th>Name</th><th>Type</th></tr>`;
+                    $('#associated_devices').append(row);
+
+                    $('#devices_to_be_associated').empty();
+                    row = `<tr><th>Address</th><th>Name</th><th>Type</th></tr>`;
+                    $('#devices_to_be_associated').append(row);
+
+                    // SET LIGHTS AS OPTIONS
+                    for(let idx in devices) {
+                        let device = devices[idx];
+                        // class="red-ui-item-save red-ui-button" fa fa-check
+                        if (device.address == thisDeviceAddress || device.address == "000000") {
+                            continue;
+                        }
+
+                        if ( "node" in thisDevice && ((("sendTo" in thisDevice.node) && (device.address in thisDevice.node.sendTo)) || 
+                             (("receivedFrom" in thisDevice.node) && (device.address in thisDevice.node.receivedFrom))) ) {
+                            // We have an associated device
+                            let row = `<tr id="${device.address}_row">
+                                <td id="${device.address}_address">${device.address}</td>
+                                <td>${'name' in device ? device.name : ''}</td>
+                                <td>${"device" in device ? device.device : ""}</td>
+                                <td><a class="red-ui-item-remove red-ui-button" href="#" id="${device.address}_remove">
+                                    <i class="fa fa-unlink"></i></a>
+                                </td>
+                                </tr>`;
+                            $('#associated_devices').append(row);
+                            $(document).on('click', `#${device.address}_remove`, function () {
+                                let confirmAction = confirm(`Are you sure you want to remove association with '${device.address}'`);
+                                if (confirmAction) {
+                                    console.log(`removeAssociation: ${device.address}, controllerId: ${nodeId}`);
+                                    $.post('/cul-max/removeAssociation', { controllerId: nodeId, myId: thisDeviceAddress, otherId: device.address })
+                                        .done(function (data) {
+                                            console.log(`removeAssociation: ${device.address}, controllerId: ${nodeId}`);
+                                            //                                        $(`table#test tr#3`).remove();
+                                            $(`#${device.address}_row`).remove();
+                                        })
+                                        .fail((error) => {
+                                            alert(`Error removeAssociation ${device.address}. Error: ${error.toString()}`);
+                                        })
+                                }
+                            });
+                        }
+                        else {
+                           // We have a device we might associated with
+                           let row = `<tr id="${device.address}_row">
+                                <td id="${device.address}_address">${device.address}</td>
+                                <td>${'name' in device ? device.name : ''}</td>
+                                <td>${"device" in device ? device.device : ""}</td>
+                                <td><a class="red-ui-item-add red-ui-button" href="#" id="${device.address}_associate">
+                                    <i class="fa fa-link"></i></a>
+                                </td>
+                                </tr>`;
+                            $('#devices_to_be_associated').append(row);
+                            $(document).on('click', `#${device.address}_associate`, function () {
+                                let confirmAction = confirm(`Are you sure you want to associate with '${device.address}'`);
+                                if (confirmAction) {
+                                    console.log(`Associate: ${device.address}, controllerId: ${nodeId}`);
+                                    $.post('/cul-max/associateDevices', { controllerId: nodeId, myId: thisDeviceAddress, otherId: device.address })
+                                        .done(function (data) {
+                                            console.log(`associateDevices: ${device.address}, controllerId: ${nodeId}`);
+                                            //                                        $(`table#test tr#3`).remove();
+                                            $(`#${device.address}_row`).remove();
+                                        })
+                                        .fail((error) => {
+                                            alert(`Error associateDevices ${device.address}. Error: ${error.toString()}`);
+                                        })
+                                }
+                            });
+
+                        }
+
+                    };
+                })
+                .fail(function () {
+                    RED.notify("unknown-error", "error");
+                });
+        }
+    }
+
+
+    var globalOnEditPrepare = function (nodeType) {
+        $(document).on('change', '#node-input-address', function () {
+            var deviceName = $('#node-input-address option:selected').text();
+            if (deviceName.length > 0) {
+                $('#node-input-name').val(deviceName);
+            }
+        });
+
+        $('#node-config-input-scan-devices').click(function () {
+            searchAndSelectAddress(nodeType);
+        });
+
+        searchAndSelectController();
+        setTimeout(searchAndSelectAddress, 100, nodeType);
+        setTimeout(getDevicesSeen, 200);
+    }
+
     RED.nodes.registerType('cul-max-thermostat', {
         category: 'cul-max',
         color: '#ffffff',
@@ -188,94 +413,8 @@
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX WallMountedThermostat");
         },
-        oneditprepare: function () {
-            var scope = this;
-
-            function manualLightID() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
-                $('#node-input-address').val(current);
-            }
-
-            function searchAndSelectAddress() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                if (controllerConfig) {
-                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
-                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "WallMountedThermostat" })
-                        .done(function (data) {
-                            var lightBulbs = JSON.parse(data);
-
-                            if (lightBulbs.length <= 0) {
-                                RED.notify(scope._("none-found"), "error");
-                            }
-
-                            // RESET OPTIONS
-                            $('#node-input-address').empty();
-
-                            // SET LIGHTS AS OPTIONS
-                            lightBulbs.forEach(function (light) {
-                                //                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                                $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
-                            });
-
-                            // SELECT CURRENT VALUE
-                            $('#node-input-address').val(current);
-                        })
-                        .fail(function () {
-                            RED.notify(scope._("unknown-error"), "error");
-                        });
-                }
-            }
-
-            $(document).on('change', '#node-input-address', function () {
-                var lightName = $('#node-input-address option:selected').text();
-                if (lightName.length > 0) {
-                    $('#node-input-name').val(lightName);
-                }
-            });
-
-            $('#node-config-input-scan-devices').click(function () {
-                if ($('#node-input-address').prop("tagName") === "INPUT") {
-                    searchAndSelectAddress();
-                } else {
-                    manualLightID();
-                }
-            });
-
-            function searchAndSelectController() {
-                var current = $('#node-input-controller').val();
-                $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                $.get('cul-max/controllers')
-                    .done(function (data) {
-                        var controllers = JSON.parse(data);
-
-                        if (controllers.length <= 0) {
-                            RED.notify(scope._("none-found"), "error");
-                        }
-
-                        // RESET OPTIONS
-                        $('#node-input-controller').empty();
-
-                        // SET LIGHTS AS OPTIONS
-                        controllers.forEach(function (controller) {
-                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
-                        });
-
-                        // SELECT CURRENT VALUE
-                        $('#node-input-controller').val(current);
-                    })
-                    .fail(function () {
-                        RED.notify(scope._("unknown-error"), "error");
-                    });
-            }
-            searchAndSelectController();
-            setTimeout(searchAndSelectAddress, 100);
+        oneditprepare: () => {
+            globalOnEditPrepare("WallMountedThermostat");
         }
     });
     RED.nodes.registerType('cul-max-radiatorthermostat', {
@@ -293,94 +432,8 @@
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX HeatingThermostat");
         },
-        oneditprepare: function () {
-            var scope = this;
-
-            function manualLightID() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
-                $('#node-input-address').val(current);
-            }
-
-            function searchAndSelectAddress() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                if (controllerConfig) {
-                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
-                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "HeatingThermostat" })
-                        .done(function (data) {
-                            var lightBulbs = JSON.parse(data);
-
-                            if (lightBulbs.length <= 0) {
-                                RED.notify(scope._("none-found"), "error");
-                            }
-
-                            // RESET OPTIONS
-                            $('#node-input-address').empty();
-
-                            // SET LIGHTS AS OPTIONS
-                            lightBulbs.forEach(function (light) {
-                                //                        $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                                $('#node-input-address').append(`<option value="${light.address}">${light.address} - ${light.name}</option>`);
-                            });
-
-                            // SELECT CURRENT VALUE
-                            $('#node-input-address').val(current);
-                        })
-                        .fail(function () {
-                            RED.notify(scope._("unknown-error"), "error");
-                        });
-                }
-            }
-
-            $(document).on('change', '#node-input-address', function () {
-                var lightName = $('#node-input-address option:selected').text();
-                if (lightName.length > 0) {
-                    $('#node-input-name').val(lightName);
-                }
-            });
-
-            $('#node-config-input-scan-devices').click(function () {
-                if ($('#node-input-address').prop("tagName") === "INPUT") {
-                    searchAndSelectAddress();
-                } else {
-                    manualLightID();
-                }
-            });
-
-            function searchAndSelectController() {
-                var current = $('#node-input-controller').val();
-                $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                $.get('cul-max/controllers')
-                    .done(function (data) {
-                        var controllers = JSON.parse(data);
-
-                        if (controllers.length <= 0) {
-                            RED.notify(scope._("none-found"), "error");
-                        }
-
-                        // RESET OPTIONS
-                        $('#node-input-controller').empty();
-
-                        // SET LIGHTS AS OPTIONS
-                        controllers.forEach(function (controller) {
-                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
-                        });
-
-                        // SELECT CURRENT VALUE
-                        $('#node-input-controller').val(current);
-                    })
-                    .fail(function () {
-                        RED.notify(scope._("unknown-error"), "error");
-                    });
-            }
-            searchAndSelectController();
-            setTimeout(searchAndSelectAddress, 100);
+        oneditprepare: () => {
+            globalOnEditPrepare("HeatingThermostat");
         }
     });
     RED.nodes.registerType('cul-max-ShutterContact', {
@@ -396,89 +449,8 @@
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX ShutterContact");
         },
-        oneditprepare: function () {
-            var scope = this;
-
-            function manualLightID() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
-                $('#node-input-address').val(current);
-            }
-
-            function searchAndSelectAddress() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                if (controllerConfig) {
-                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
-                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "ShutterContact" })
-                        .done(function (data) {
-                            var lightBulbs = JSON.parse(data);
-
-                            if (lightBulbs.length <= 0) {
-                                RED.notify(scope._("none-found"), "error");
-                            }
-
-                            // RESET OPTIONS
-                            $('#node-input-address').empty();
-
-                            // SET LIGHTS AS OPTIONS
-                            lightBulbs.forEach(function (light) {
-                                $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                            });
-
-                            // SELECT CURRENT VALUE
-                            $('#node-input-address').val(current);
-                        })
-                        .fail(function () {
-                            RED.notify(scope._("unknown-error"), "error");
-                        });
-                }
-            }
-
-            $(document).on('change', '#node-input-address', function () {
-                var lightName = $('#node-input-address option:selected').text();
-                if (lightName.length > 0) {
-                    $('#node-input-name').val(lightName);
-                }
-            });
-
-            $('#node-config-input-scan-devices').click(function () {
-                searchAndSelectAddress();
-            });
-
-            function searchAndSelectController() {
-                var current = $('#node-input-controller').val();
-                $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                $.get('cul-max/controllers')
-                    .done(function (data) {
-                        var controllers = JSON.parse(data);
-
-                        if (controllers.length <= 0) {
-                            RED.notify(scope._("none-found"), "error");
-                        }
-
-                        // RESET OPTIONS
-                        $('#node-input-controller').empty();
-
-                        // SET LIGHTS AS OPTIONS
-                        controllers.forEach(function (controller) {
-                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
-                        });
-
-                        // SELECT CURRENT VALUE
-                        $('#node-input-controller').val(current);
-                    })
-                    .fail(function () {
-                        RED.notify(scope._("unknown-error"), "error");
-                    });
-            }
-            searchAndSelectController();
-            setTimeout(searchAndSelectAddress, 100);
+        oneditprepare: () => {
+            globalOnEditPrepare("ShutterContact");
         }
     });
     RED.nodes.registerType('cul-max-PushButton', {
@@ -494,93 +466,8 @@
         label: function () {
             return (this.groupaddr || this.name || "CUL-MAX PushButton");
         },
-        oneditprepare: function () {
-            var scope = this;
-
-            function manualLightID() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<input type="text" id="node-input-address" style="width: 100%"/>');
-                $('#node-input-address').val(current);
-            }
-
-            function searchAndSelectAddress() {
-                var current = $('#node-input-address').val();
-                $('#node-input-address').replaceWith('<select id="node-input-address" style="width: 100%"></select>');
-                $('#node-input-address').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                var controllerConfig = RED.nodes.node($('#node-input-controller option:selected').val());
-                if (controllerConfig) {
-                    console.log("controllerConfig:" + JSON.stringify(controllerConfig, null, "\t"))
-                    $.get('cul-max/devices', { controllerId: controllerConfig.id, type: "PushButton" })
-                        .done(function (data) {
-                            var lightBulbs = JSON.parse(data);
-
-                            if (lightBulbs.length <= 0) {
-                                RED.notify(scope._("none-found"), "error");
-                            }
-
-                            // RESET OPTIONS
-                            $('#node-input-address').empty();
-
-                            // SET LIGHTS AS OPTIONS
-                            lightBulbs.forEach(function (light) {
-                                $('#node-input-address').append('<option value="' + light.address + '">' + light.address + '</option>');
-                            });
-
-                            // SELECT CURRENT VALUE
-                            $('#node-input-address').val(current);
-                        })
-                        .fail(function () {
-                            RED.notify(scope._("unknown-error"), "error");
-                        });
-                }
-            }
-
-            $(document).on('change', '#node-input-address', function () {
-                var lightName = $('#node-input-address option:selected').text();
-                if (lightName.length > 0) {
-                    $('#node-input-name').val(lightName);
-                }
-            });
-
-            $('#node-config-input-scan-devices').click(function () {
-                if ($('#node-input-address').prop("tagName") === "INPUT") {
-                    searchAndSelectAddress();
-                } else {
-                    manualLightID();
-                }
-            });
-
-            function searchAndSelectController() {
-                var current = $('#node-input-controller').val();
-                $('#node-input-controller').replaceWith('<select id="node-input-controller" style="width: 100%"></select>');
-                $('#node-input-controller').append('<option selected="selected" value="null">' + scope._("searching") + '</option>');
-
-                $.get('cul-max/controllers')
-                    .done(function (data) {
-                        var controllers = JSON.parse(data);
-
-                        if (controllers.length <= 0) {
-                            RED.notify(scope._("none-found"), "error");
-                        }
-
-                        // RESET OPTIONS
-                        $('#node-input-controller').empty();
-
-                        // SET LIGHTS AS OPTIONS
-                        controllers.forEach(function (controller) {
-                            $('#node-input-controller').append('<option value="' + controller.id + '">' + controller.name + '</option>');
-                        });
-
-                        // SELECT CURRENT VALUE
-                        $('#node-input-controller').val(current);
-                    })
-                    .fail(function () {
-                        RED.notify(scope._("unknown-error"), "error");
-                    });
-            }
-            searchAndSelectController();
-            setTimeout(searchAndSelectAddress, 100);
+        oneditprepare: () => {
+            globalOnEditPrepare("PushButton");
         }
     });
 </script>

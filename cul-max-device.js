@@ -5,16 +5,13 @@
  * Created by Michel Verbraak (info@1st-setup.nl).
  */
 
-var util = require('util');
-var Cul = require('cul');
-const fs = require('fs');
-const path = require('path');
-
 const cmd2MsgId = {
 	"SetTemperature": "40",
 	"ConfigWeekProfile": "10",
 	"SetDisplayActualTemperature": "82",
-	"TimeInformation": "03"
+	"TimeInformation": "03",
+	"AddLinkPartner": "20",
+	"RemoveLinkPartner": "21"
 }
 
 const WEEKDAYS = {
@@ -33,6 +30,15 @@ const WEEKDAYS = {
 	"thursday": 5,
 	"friday": 6
 }
+
+var device_types_by_name = {
+	"Cube": 0,
+	"HeatingThermostat": 1,
+	"HeatingThermostatPlus": 2,
+	"WallMountedThermostat": 3,
+	"ShutterContact": 4,
+	"PushButton": 5
+};
 
 function prefix(inStr, char, len) {
 	var result = inStr;
@@ -186,6 +192,30 @@ module.exports = function (RED) {
 			}
 		}
 
+		this.addLinkPartner = function (payload, send, done) {
+			// Construct payload for controller
+			let culMaxPayload;
+			if (payload) {
+				culMaxPayload = payload;
+				if (payload in node.controller.devices) {
+					if (node.controller.devices[payload].device in device_types_by_name) {
+						culMaxPayload += prefix(device_types_by_name[node.controller.devices[payload].device].toString(16), '0', 2);
+						node.log(`%%%% ${culMaxPayload}`)
+						node.controller.emit("sendTo", node.address, cmd2MsgId["AddLinkPartner"], culMaxPayload);
+					}
+					else {
+						node.log(`Unknown device type: ${node.controller.devices[payload].device}`)
+					}
+				}
+				else {
+					node.log(`Unknown address: ${payload}`)
+				}
+			}
+			if (done) {
+				done();
+			}
+		}
+
 		this.setControlPoints = function (payload, send, done) {
 			// Construct payload for controller
 			// example payload: 0 2 3C45 5454 3CFE 5508 3D20 4520 4520 0 7
@@ -311,6 +341,17 @@ module.exports = function (RED) {
 			if (msg && msg.hasOwnProperty("topic")) {
 				let device;
 				switch (msg.topic) {
+					case "list":
+						if (send) {
+							send([{
+								topic: "cul-max:" + node.address,
+								payload: node.controller.getDevice(node.address)
+							}, null]);
+						}
+						if (done) {
+							done();
+						}
+						break;
 					case "SetTemperature":
 						device = node.controller.getDevice(node.address);
 						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
@@ -351,6 +392,17 @@ module.exports = function (RED) {
 						console.log(`device: ${device.device}`)
 						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
 							node.setTimeInformation(msg.payload, send, done);
+						}
+						else {
+							if (done) {
+								done();
+							}
+						}
+						break;
+					case "AddLinkPartner":
+						device = node.controller.getDevice(node.address);
+						if (device !== null && (device.device == "HeatingThermostat" || device.device == "WallMountedThermostat")) {
+							node.addLinkPartner(msg.payload, send, done);
 						}
 						else {
 							if (done) {
